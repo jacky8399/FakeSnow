@@ -1,0 +1,16 @@
+name: FakeSnow
+version: @version@
+main: com.jacky8399.fakesnow.FakeSnow
+api-version: 1.16
+load: STARTUP
+depend: [ ProtocolLib, WorldGuard ]
+authors: [ jacky8399 ]
+description: Make zones snow without changing the biome
+
+commands:
+  fakesnow:
+    permission: fakesnow.admin
+
+permissions:
+  fakesnow.admin:
+    default: op
