@@ -11,6 +11,7 @@ import org.bukkit.event.world.WorldLoadEvent;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 
 public class CommandFakesnow implements TabExecutor {
@@ -20,29 +21,28 @@ public class CommandFakesnow implements TabExecutor {
             return false;
         switch (args[0]) {
             case "refreshregions": {
-                if (!(sender instanceof Player)) {
-                    for (World world : Bukkit.getWorlds())
-                        (new Events()).onWorldLoad(new WorldLoadEvent(world));
-                    sender.sendMessage(ChatColor.GREEN + "Reloaded all worlds");
-                    return true;
-                }
-                World world = ((Player) sender).getWorld();
-                sender.sendMessage(ChatColor.GREEN + "Reloading " + world.getName());
-                (new Events()).onWorldLoad(new WorldLoadEvent(world));
+                // Clear old cache first
+                FakeSnow.get().regionChunkCache.clear();
+                FakeSnow.get().regionWorldCache.clear();
+                for (World world : Bukkit.getWorlds())
+                    (new Events()).onWorldLoad(new WorldLoadEvent(world));
+                sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds() + " worlds");
+                sender.sendMessage(ChatColor.GREEN + "Discovered " +
+                        FakeSnow.get().regionChunkCache.values().stream().mapToInt(HashSet::size).sum() + " region(s)");
+                return true;
             }
-            break;
             case "realbiome": {
                 if (!(sender instanceof Player)) {
+                    sender.sendMessage(ChatColor.RED + "You can only run this command as a player!");
                     return false;
                 }
                 Player player = ((Player) sender);
                 player.sendMessage(ChatColor.GREEN + "The current biome you are in: " + player.getLocation().getBlock().getBiome().getKey().toString());
+                return true;
             }
-            break;
-            default:
-                return false;
         }
-        return true;
+        sender.sendMessage(ChatColor.RED + "/fakesnow <refreshregions/realbiome>");
+        return false;
     }
 
     @Override
