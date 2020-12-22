@@ -1,9 +1,9 @@
 package com.jacky8399.fakesnow;
 
+import com.google.common.base.Preconditions;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.block.Biome;
-import org.bukkit.craftbukkit.libs.org.apache.commons.lang3.Validate;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -61,7 +61,7 @@ public class NMSUtils {
             //  Biome
             //
             BIOME_BASE_CLAZZ = getNMSClass("BiomeBase");
-            Validate.notNull(BIOME_BASE_CLAZZ);
+            Preconditions.checkNotNull(BIOME_BASE_CLAZZ);
             // CraftBlock has the conversion methods we want, but it requires the IRegistry
             // so we get that from DedicatedServer.getCustomRegistry().b(IRegistry.ay); (in v1_16_R3)
             Method craftServerGetServer = Bukkit.getServer().getClass().getMethod("getServer");
@@ -117,9 +117,9 @@ public class NMSUtils {
             //  BiomeStorage
             //
             BIOME_STORAGE_CLAZZ = getNMSClass("BiomeStorage");
-            Validate.notNull(BIOME_STORAGE_CLAZZ);
+            Preconditions.checkNotNull(BIOME_STORAGE_CLAZZ);
             REGISTRY_CLAZZ = getNMSClass("Registry");
-            Validate.notNull(REGISTRY_CLAZZ);
+            Preconditions.checkNotNull(REGISTRY_CLAZZ);
             // cheating: use bytecode class name
             Class<?> biomeBaseArrayClazz = Class.forName("[L" + NMS_PACKAGE + ".BiomeBase;");
             // find storage field (h on v1_16_R3)
@@ -133,8 +133,8 @@ public class NMSUtils {
                 if (BIOME_STORAGE_STORAGE_FIELD != null && BIOME_STORAGE_REGISTRY_FIELD != null)
                     break;
             }
-            Validate.notNull(BIOME_STORAGE_STORAGE_FIELD);
-            Validate.notNull(BIOME_STORAGE_REGISTRY_FIELD);
+            Preconditions.checkNotNull(BIOME_STORAGE_STORAGE_FIELD);
+            Preconditions.checkNotNull(BIOME_STORAGE_REGISTRY_FIELD);
             // find BiomeStorage constructor
             // public BiomeStorage(Registry<BiomeBase> registry, BiomeBase[] abiomebase)
             for (Constructor<?> constructor : BIOME_STORAGE_CLAZZ.getConstructors()) {
@@ -144,14 +144,14 @@ public class NMSUtils {
                     break;
                 }
             }
-            Validate.notNull(BIOME_STORAGE_CONSTRUCTOR);
+            Preconditions.checkNotNull(BIOME_STORAGE_CONSTRUCTOR);
             // find methods
             // public BiomeBase getBiome(int i, int j, int k)
             BIOME_STORAGE_GET_BIOME = BIOME_STORAGE_CLAZZ.getMethod("getBiome", int.class, int.class, int.class);
-            Validate.notNull(BIOME_STORAGE_GET_BIOME);
+            Preconditions.checkNotNull(BIOME_STORAGE_GET_BIOME);
             // public void setBiome(int i, int j, int k, BiomeBase biome)
             BIOME_STORAGE_SET_BIOME = BIOME_STORAGE_CLAZZ.getMethod("setBiome", int.class, int.class, int.class, BIOME_BASE_CLAZZ);
-            Validate.notNull(BIOME_STORAGE_SET_BIOME);
+            Preconditions.checkNotNull(BIOME_STORAGE_SET_BIOME);
             // public int[] a()
             for (Method method : BIOME_STORAGE_CLAZZ.getMethods()) {
                 if (method.getReturnType().equals(int[].class)) {
@@ -159,7 +159,7 @@ public class NMSUtils {
                     break;
                 }
             }
-            Validate.notNull(BIOME_STORAGE_GET_BIOME_BYTES);
+            Preconditions.checkNotNull(BIOME_STORAGE_GET_BIOME_BYTES);
         } catch (Exception e) {
             throw new Error("Can't find biome storage", e);
         }

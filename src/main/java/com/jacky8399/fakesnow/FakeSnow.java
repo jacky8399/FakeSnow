@@ -58,11 +58,10 @@ public final class FakeSnow extends JavaPlugin {
         getCommand("fakesnow").setExecutor(new CommandFakesnow());
         ProtocolLibrary.getProtocolManager().addPacketListener(new PacketListener());
 
-        try {
-            //NMSUtils.getHandle(Bukkit.getServer());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        // regularly reload regions
+        Bukkit.getScheduler().runTaskTimer(this, ()->{
+            Bukkit.getWorlds().forEach(Events::addRegionsToCache);
+        }, 20,60 * 20);
     }
 
     @Override

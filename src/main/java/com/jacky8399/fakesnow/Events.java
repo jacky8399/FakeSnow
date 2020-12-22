@@ -11,6 +11,7 @@ import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.GlobalProtectedRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.event.EventHandler;
@@ -23,7 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class Events implements Listener {
-    public void addRegionToCache(ProtectedRegion region, World world) {
+    public static void addRegionToCache(ProtectedRegion region, World world) {
         if (region instanceof GlobalProtectedRegion) {
             FakeSnow.get().regionWorldCache.put(world, region);
             return;
@@ -38,16 +39,28 @@ public class Events implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onWorldLoad(WorldLoadEvent e) {
-        RegionManager manager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(e.getWorld()));
+    public static void addRegionsToCache(World world) {
+        if (!Bukkit.getPluginManager().isPluginEnabled("WorldGuard"))
+            return;
+        RegionManager manager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(world));
         if (manager != null) {
             for (ProtectedRegion region : manager.getRegions().values()) {
-                addRegionToCache(region, e.getWorld());
+                addRegionToCache(region, world);
             }
-            FakeSnow.get().logger.info(manager.getRegions().size() + " regions have been put in the cache.");
         }
     }
+
+    // disabled - should load on chunk load
+//    @EventHandler(priority = EventPriority.HIGH)
+//    public void onWorldLoad(WorldLoadEvent e) {
+//        RegionManager manager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(e.getWorld()));
+//        if (manager != null) {
+//            for (ProtectedRegion region : manager.getRegions().values()) {
+//                addRegionToCache(region, e.getWorld());
+//            }
+//            FakeSnow.get().logger.info(manager.getRegions().size() + " regions have been put in the cache.");
+//        }
+//    }
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onChunkLoad(ChunkLoadEvent e) {
