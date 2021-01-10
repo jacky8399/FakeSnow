@@ -2,6 +2,7 @@ package com.jacky8399.fakesnow;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -32,12 +33,31 @@ public class CommandFakesnow implements TabExecutor {
                 return true;
             }
             case "realbiome": {
-                if (!(sender instanceof Player)) {
-                    sender.sendMessage(ChatColor.RED + "You can only run this command as a player!");
+                Location location;
+                if (args.length >= 4) {
+                    try {
+                        World world = args.length == 5 ? Bukkit.getWorld(args[4]) : Bukkit.getWorlds().get(0);
+                        if (world == null) {
+                            sender.sendMessage(ChatColor.RED + "No such world exist!");
+                            return false;
+                        }
+                        location = new Location(world, Integer.parseInt(args[1]), Integer.parseInt(args[2]), Integer.parseInt(args[3]));
+                    } catch (NumberFormatException e) {
+                        sender.sendMessage(ChatColor.RED + "Malformed coordinates!");
+                        return false;
+                    }
+                } else if (args.length != 1) { // incomplete coordinates
+                    sender.sendMessage(ChatColor.RED + "Invalid coordinates!");
                     return false;
+                } else {
+                    if (!(sender instanceof Player)) {
+                        sender.sendMessage(ChatColor.RED + "Usage: /fakesnow realbiome <x> <y> <z> [world]");
+                        return false;
+                    }
+                    location = ((Player) sender).getLocation();
                 }
-                Player player = ((Player) sender);
-                player.sendMessage(ChatColor.GREEN + "The current biome you are in: " + player.getLocation().getBlock().getBiome().getKey().toString());
+                sender.sendMessage(ChatColor.GREEN + "The current biome at "+location.getBlockX()+","+location.getBlockY()+","+location.getBlockZ()+": " +
+                        location.getBlock().getBiome().getKey().toString());
                 return true;
             }
         }
@@ -47,9 +67,15 @@ public class CommandFakesnow implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length <= 1)
+        if (args.length <= 1) {
             return Arrays.asList("refreshregions", "realbiome");
-        else
+        } else if ("realbiome".equals(args[0]) && args.length <= 5 && sender instanceof Player) {
+            // position of player
+            Location location = ((Player) sender).getLocation();
+            String[] pos = {""+location.getBlockX(), ""+location.getBlockY(), ""+location.getBlockZ(), location.getWorld().getName()};
+            return Collections.singletonList(pos[args.length - 2]);
+        } else {
             return Collections.emptyList();
+        }
     }
 }

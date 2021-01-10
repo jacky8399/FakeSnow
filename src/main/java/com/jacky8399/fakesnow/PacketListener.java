@@ -33,7 +33,7 @@ public class PacketListener extends PacketAdapter {
         if (FakeSnow.get().regionWorldCache.get(world) != null) {
             ProtectedRegion globalRegion = FakeSnow.get().regionWorldCache.get(world);
             FakeSnow.WeatherType weatherType = globalRegion.getFlag(FakeSnow.CUSTOM_WEATHER_TYPE);
-            if (weatherType != null && weatherType != FakeSnow.WeatherType.DEFAULT) {
+            if (weatherType != null) {
                 Object biomeStorage = NMSUtils.cloneBiomeStorage(NMSUtils.getBiomeStorage(chunk));
                 // set entire chunk to be that biome
                 for (int i = 0; i < 4; i++) {
@@ -59,7 +59,7 @@ public class PacketListener extends PacketAdapter {
         for (ProtectedRegion region : regions) {
             // check if in the correct world
             FakeSnow.WeatherType weather = region.getFlag(FakeSnow.CUSTOM_WEATHER_TYPE);
-            if (!manager.hasRegion(region.getId()) || weather == null || weather == FakeSnow.WeatherType.DEFAULT)
+            if (!manager.hasRegion(region.getId()) || weather == null)
                 continue;
 
             //FakeSnow.get().logger.info(String.format("Chunks (%d, %d) contained region %s", x, z, region.getId()));

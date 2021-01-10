@@ -22,7 +22,6 @@ import java.util.logging.Logger;
 
 public final class FakeSnow extends JavaPlugin {
     public enum WeatherType {
-        DEFAULT(null),
         RAIN(Biome.FOREST),
         SNOW(Biome.SNOWY_TAIGA),
         NONE(Biome.THE_VOID);
@@ -58,10 +57,10 @@ public final class FakeSnow extends JavaPlugin {
         getCommand("fakesnow").setExecutor(new CommandFakesnow());
         ProtocolLibrary.getProtocolManager().addPacketListener(new PacketListener());
 
+        // run immediately
+        Bukkit.getWorlds().forEach(Events::addRegionsToCache);
         // regularly reload regions
-        Bukkit.getScheduler().runTaskTimer(this, ()->{
-            Bukkit.getWorlds().forEach(Events::addRegionsToCache);
-        }, 20,60 * 20);
+        Bukkit.getScheduler().runTaskTimer(this, () -> Bukkit.getWorlds().forEach(Events::addRegionsToCache), 20,60 * 20);
     }
 
     @Override

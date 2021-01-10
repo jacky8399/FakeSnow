@@ -50,18 +50,6 @@ public class Events implements Listener {
         }
     }
 
-    // disabled - should load on chunk load
-//    @EventHandler(priority = EventPriority.HIGH)
-//    public void onWorldLoad(WorldLoadEvent e) {
-//        RegionManager manager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(e.getWorld()));
-//        if (manager != null) {
-//            for (ProtectedRegion region : manager.getRegions().values()) {
-//                addRegionToCache(region, e.getWorld());
-//            }
-//            FakeSnow.get().logger.info(manager.getRegions().size() + " regions have been put in the cache.");
-//        }
-//    }
-
     @EventHandler(priority = EventPriority.HIGH)
     public void onChunkLoad(ChunkLoadEvent e) {
         Chunk chunk = e.getChunk();
