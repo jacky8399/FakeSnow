@@ -5,6 +5,9 @@ import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
+import com.comphenix.protocol.reflect.StructureModifier;
+import com.comphenix.protocol.utility.MinecraftReflection;
+import com.comphenix.protocol.utility.MinecraftVersion;
 import com.comphenix.protocol.wrappers.ChunkCoordIntPair;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
@@ -14,11 +17,27 @@ import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.Nullable;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 
 public class PacketListener extends PacketAdapter {
+    private static void setBiome(int[] arr, int x, int y, int z, int id) {
+        int idx = ((y >> 2) & 63) << 4 | ((z >> 2) & 3) << 2 | ((x >> 2) & 3);
+        if (idx >= arr.length)
+            throw new IndexOutOfBoundsException(String.format(
+                    "Can't set biome of (%d, %d, %d) because converted index %d > array length %d",
+                    x, y, z, idx, arr.length));
+        arr[idx] = id;
+    }
+
+    @Nullable
+    private static final Class<?> chunkPacketDataClazz = MinecraftReflection
+            .getNullableNMS("network.protocol.game.ClientboundLevelChunkPacketData");
+
     @Override
     public void onPacketSending(PacketEvent event) {
         Player player = event.getPlayer();
@@ -27,22 +46,24 @@ public class PacketListener extends PacketAdapter {
         World world = player.getWorld();
         PacketContainer packet = event.getPacket();
         int x = packet.getIntegers().read(0), z = packet.getIntegers().read(1);
-        Chunk chunk = world.getChunkAt(x, z);
+        StructureModifier<Object> chunkPacketData = null;
+        int[] biomeIDs;
+        if (MinecraftVersion.atOrAbove(new MinecraftVersion("1.18"))) {
+            throw new UnsupportedOperationException("1.18 or above is not supported");
+//            Object data = packet.getSpecificModifier(chunkPacketDataClazz).read(0);
+//            chunkPacketData = new StructureModifier<>(chunkPacketDataClazz, null, false).withTarget(data);
+//            biomeIDs = chunkPacketData.<int[]>withType(int[].class).read(0);
+        } else {
+            biomeIDs = packet.getIntegerArrays().read(0);
+        }
 
         // check for __global__ first
-        if (FakeSnow.get().regionWorldCache.get(world) != null) {
-            ProtectedRegion globalRegion = FakeSnow.get().regionWorldCache.get(world);
+        ProtectedRegion globalRegion = PLUGIN.regionWorldCache.get(world);
+        if (globalRegion != null) {
             FakeSnow.WeatherType weatherType = globalRegion.getFlag(FakeSnow.CUSTOM_WEATHER_TYPE);
             if (weatherType != null) {
-                Object biomeStorage = NMSUtils.cloneBiomeStorage(NMSUtils.getBiomeStorage(chunk));
                 // set entire chunk to be that biome
-                for (int i = 0; i < 4; i++) {
-                    for (int j = 0; j < 16; j++) {
-                        for (int k = 0; k < 4; k++) {
-                            NMSUtils.setBiome(biomeStorage, i << 2, j << 2, k << 2, weatherType.biome);
-                        }
-                    }
-                }
+                Arrays.fill(biomeIDs, weatherType.rawID);
             }
         }
 
@@ -54,7 +75,6 @@ public class PacketListener extends PacketAdapter {
         RegionManager manager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(world));
         if (manager == null)
             return;
-        Object biomeStorage = NMSUtils.cloneBiomeStorage(NMSUtils.getBiomeStorage(chunk));
         // find things to change
         for (ProtectedRegion region : regions) {
             // check if in the correct world
@@ -62,30 +82,28 @@ public class PacketListener extends PacketAdapter {
             if (!manager.hasRegion(region.getId()) || weather == null)
                 continue;
 
-            //FakeSnow.get().logger.info(String.format("Chunks (%d, %d) contained region %s", x, z, region.getId()));
+//            FakeSnow.get().logger.info(String.format("Chunks (%d, %d) contained region %s", x, z, region.getId()));
 
-            int blocks = 0;
+//            int blocks = 0;
             BlockVector3 min = region.getMinimumPoint(), max = region.getMaximumPoint();
-//            for (int i = min.getBlockX(); i < max.getBlockX() && i > x * 16 && i < x * 16 + 15; i += 4) {
-            for (int i = 0; i < 16; i++) {
-                for (int j = 0; j < 64; j++) {
-//                    for (int k = min.getBlockZ(); k < max.getBlockZ() && k > z * 16 && k < z * 16 + 15; k += 4) {
-                    for (int k = 0; k < 16; k++) {
-                        // extra check just in case
-//                        if (!region.contains(i, j, k))
-//                            continue;
-                        blocks++;
-//                        NMSUtils.setBiome(biomeStorage, (i & 15) >> 2, j, (k & 15) >> 2, weather.biome);
-                        NMSUtils.setBiome(biomeStorage, i, j, k, weather.biome);
+            for (int i = Math.max(min.getBlockX(), x * 16); i < Math.min(max.getBlockX(), x * 16 + 15); i++) {
+                for (int j = world.getMinHeight(); j < world.getMaxHeight(); j++) {
+                    for (int k = Math.max(min.getBlockZ(), z * 16); k < Math.min(max.getBlockZ(), z * 16 + 15); k++) {
+//                        blocks++;
+                        setBiome(biomeIDs, i, j - world.getMinHeight(), k, weather.rawID);
                     }
                 }
             }
-            //FakeSnow.get().logger.info("Changed " + (blocks) + "blocks, I guess");
+//            FakeSnow.get().logger.info("Changed " + (blocks) + "blocks, I guess");
         }
 
-        // write it back
-        int[] biomes = NMSUtils.getBiomes(biomeStorage);
-        packet.getIntegerArrays().write(0, biomes);
+        if (chunkPacketData != null) { // 1.18
+            chunkPacketData.<int[]>withType(int[].class).write(0, biomeIDs);
+            // noinspection unchecked,rawtypes
+            packet.getSpecificModifier((Class) chunkPacketDataClazz).write(0, chunkPacketData.getTarget());
+        } else {
+            packet.getIntegerArrays().write(0, biomeIDs);
+        }
     }
 
     private static final FakeSnow PLUGIN = FakeSnow.get();

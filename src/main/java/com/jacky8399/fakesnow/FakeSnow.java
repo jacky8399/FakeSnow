@@ -22,12 +22,14 @@ import java.util.logging.Logger;
 
 public final class FakeSnow extends JavaPlugin {
     public enum WeatherType {
-        RAIN(Biome.FOREST),
-        SNOW(Biome.SNOWY_TAIGA),
-        NONE(Biome.THE_VOID);
-        public Biome biome;
-        WeatherType(Biome biome) {
+        RAIN(Biome.FOREST, 4),
+        SNOW(Biome.SNOWY_TAIGA, 30),
+        NONE(Biome.THE_VOID, 127);
+        public final Biome biome;
+        public final int rawID;
+        WeatherType(Biome biome, int rawID) {
             this.biome = biome;
+            this.rawID = rawID;
         }
     }
     public static EnumFlag<WeatherType> CUSTOM_WEATHER_TYPE;

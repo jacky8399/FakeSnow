@@ -1,8 +1,6 @@
 package com.jacky8399.fakesnow;
 
 import com.comphenix.protocol.wrappers.ChunkCoordIntPair;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldguard.WorldGuard;
@@ -18,12 +16,14 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.ChunkLoadEvent;
-import org.bukkit.event.world.WorldLoadEvent;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 
 public class Events implements Listener {
+    private static int nearestChunkCoord(int i) {
+        return i >> 4 << 4;
+    }
+
     public static void addRegionToCache(ProtectedRegion region, World world) {
         if (region instanceof GlobalProtectedRegion) {
             FakeSnow.get().regionWorldCache.put(world, region);
@@ -31,10 +31,10 @@ public class Events implements Listener {
         }
 
         BlockVector3 min = region.getMinimumPoint(), max = region.getMaximumPoint();
-        for (int i = min.getBlockX(); i < max.getBlockX(); i += 16) {
-            for (int k = min.getBlockZ(); k < max.getBlockZ(); k += 16) {
+        for (int i = nearestChunkCoord(min.getBlockX()); i < nearestChunkCoord(max.getBlockX() + 15); i += 16) {
+            for (int k = nearestChunkCoord(min.getBlockZ()); k < nearestChunkCoord(max.getBlockZ() + 15); k += 16) {
                 ChunkCoordIntPair coords = new ChunkCoordIntPair((int) Math.floor(i / 16f), (int) Math.floor(k / 16f));
-                FakeSnow.get().regionChunkCache.computeIfAbsent(coords, ignored -> Sets.newHashSet()).add(region);
+                FakeSnow.get().regionChunkCache.computeIfAbsent(coords, ignored -> new HashSet<>()).add(region);
             }
         }
     }

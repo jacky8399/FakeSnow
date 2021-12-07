@@ -27,7 +27,7 @@ public class CommandFakesnow implements TabExecutor {
                 FakeSnow.get().regionWorldCache.clear();
                 for (World world : Bukkit.getWorlds())
                     Events.addRegionsToCache(world);
-                sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds() + " worlds");
+                sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds().size() + " worlds");
                 sender.sendMessage(ChatColor.GREEN + "Discovered " +
                         FakeSnow.get().regionChunkCache.values().stream().mapToInt(HashSet::size).sum() + " region(s)");
                 return true;
