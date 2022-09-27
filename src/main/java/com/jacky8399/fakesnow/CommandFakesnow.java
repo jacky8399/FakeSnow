@@ -8,12 +8,11 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
-import org.bukkit.event.world.WorldLoadEvent;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class CommandFakesnow implements TabExecutor {
     @Override
@@ -29,7 +28,7 @@ public class CommandFakesnow implements TabExecutor {
                     Events.addRegionsToCache(world);
                 sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds().size() + " worlds");
                 sender.sendMessage(ChatColor.GREEN + "Discovered " +
-                        FakeSnow.get().regionChunkCache.values().stream().mapToInt(HashSet::size).sum() + " region(s)");
+                        FakeSnow.get().regionChunkCache.values().stream().mapToInt(Set::size).sum() + " region(s)");
                 return true;
             }
             case "realbiome": {

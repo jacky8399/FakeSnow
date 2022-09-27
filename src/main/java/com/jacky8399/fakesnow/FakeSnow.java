@@ -1,41 +1,26 @@
 package com.jacky8399.fakesnow;
 
 import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.utility.MinecraftVersion;
 import com.comphenix.protocol.wrappers.ChunkCoordIntPair;
-import com.google.common.collect.Maps;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.protection.flags.EnumFlag;
 import com.sk89q.worldguard.protection.flags.registry.FlagConflictException;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
-import com.sk89q.worldguard.session.handler.Handler;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
-import org.bukkit.block.Biome;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Logger;
 
 public final class FakeSnow extends JavaPlugin {
-    public enum WeatherType {
-        RAIN(Biome.FOREST, 4),
-        SNOW(Biome.SNOWY_TAIGA, 30),
-        NONE(Biome.THE_VOID, 127);
-        public final Biome biome;
-        public final int rawID;
-        WeatherType(Biome biome, int rawID) {
-            this.biome = biome;
-            this.rawID = rawID;
-        }
-    }
     public static EnumFlag<WeatherType> CUSTOM_WEATHER_TYPE;
     @Override
     public void onLoad() {
-        super.onLoad();
         try {
             CUSTOM_WEATHER_TYPE = new EnumFlag<>("custom-weather-type", WeatherType.class);
             WorldGuard.getInstance().getFlagRegistry().register(CUSTOM_WEATHER_TYPE);
@@ -45,8 +30,8 @@ public final class FakeSnow extends JavaPlugin {
         }
     }
 
-    public HashMap<ChunkCoordIntPair, HashSet<ProtectedRegion>> regionChunkCache = Maps.newHashMap();
-    public WeakHashMap<World, ProtectedRegion> regionWorldCache = new WeakHashMap<>();
+    public Map<ChunkCoordIntPair, Set<ProtectedRegion>> regionChunkCache = new HashMap<>();
+    public Map<World, ProtectedRegion> regionWorldCache = new WeakHashMap<>();
 
     private static FakeSnow INSTANCE;
     public Logger logger;
@@ -54,7 +39,10 @@ public final class FakeSnow extends JavaPlugin {
     public void onEnable() {
         INSTANCE = this;
         logger = getLogger();
-        logger.info("FakeSnow is loading");
+        if (!MinecraftVersion.atOrAbove(new MinecraftVersion("1.19")))
+            throw new IllegalStateException("Only Minecraft 1.19 is supported");
+
+
         Bukkit.getPluginManager().registerEvents(new Events(), this);
         getCommand("fakesnow").setExecutor(new CommandFakesnow());
         ProtocolLibrary.getProtocolManager().addPacketListener(new PacketListener());
