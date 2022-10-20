@@ -10,7 +10,6 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -20,15 +19,15 @@ public class CommandFakesnow implements TabExecutor {
         if (args.length == 0)
             return false;
         switch (args[0]) {
-            case "refreshregions": {
-                // Clear old cache first
+            case "refreshregions" -> {
                 WeatherCache.refreshCache();
-                sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds().size() + " worlds");
-//                sender.sendMessage(ChatColor.GREEN + "Discovered " +
-//                        FakeSnow.get().regionChunkCache.values().stream().mapToInt(Set::size).sum() + " region(s)");
+                sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds().size() + " worlds, cached " +
+                        WeatherCache.worldCache.values().stream()
+                                .mapToInt(worldCache -> worldCache.chunkMap().size())
+                                .sum() + " chunks");
                 return true;
             }
-            case "realbiome": {
+            case "realbiome" -> {
                 Location location;
                 if (args.length >= 4) {
                     try {
@@ -52,29 +51,23 @@ public class CommandFakesnow implements TabExecutor {
                     }
                     location = ((Player) sender).getLocation();
                 }
-                sender.sendMessage(ChatColor.GREEN + "The current biome at "+location.getBlockX()+","+location.getBlockY()+","+location.getBlockZ()+": " +
-                        location.getBlock().getBiome().getKey().toString());
+                sender.sendMessage(ChatColor.GREEN + "The current biome at " + location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ() + ": " +
+                        location.getBlock().getBiome().getKey());
                 return true;
             }
-            case "checkchunk": {
-                var location = ((Player) sender).getLocation();
-                var worldCache = WeatherCache.getWorldCache(location.getWorld());
-                var chunkCache = worldCache.getChunkCache(location.getBlockX() / 16, location.getBlockZ() / 16);
-                if (chunkCache == null) {
-                    sender.sendMessage(ChatColor.RED + "No chunk cache");
-                } else {
-                    sender.sendMessage(ChatColor.GREEN + "Has chunk cache");
-                }
+            case "reload" -> {
+                FakeSnow.get().reloadConfig();
+                sender.sendMessage(ChatColor.GREEN + "Configuration reloaded.");
             }
         }
-        sender.sendMessage(ChatColor.RED + "/fakesnow <refreshregions/realbiome>");
+        sender.sendMessage(ChatColor.RED + "/fakesnow <refreshregions/realbiome/reload>");
         return false;
     }
 
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
         if (args.length <= 1) {
-            return Arrays.asList("refreshregions", "realbiome");
+            return List.of("refreshregions", "realbiome", "reload");
         } else if ("realbiome".equals(args[0]) && args.length <= 5 && sender instanceof Player player) {
             // position of player
             Location location = player.getLocation();
@@ -87,7 +80,7 @@ public class CommandFakesnow implements TabExecutor {
                 default -> throw new IllegalArgumentException();
             });
         } else {
-            return Collections.emptyList();
+            return List.of();
         }
     }
 }

@@ -47,41 +47,6 @@ public class PacketListener extends PacketAdapter {
         }
     }
 
-    private static void applyRegions(World world, LevelChunk nmsChunk, int x, int z, LevelChunkSection[] fakeSections, WeatherCache.WorldCache worldCache) {
-//
-////        PLUGIN.logger.info("Changed chunk " + x + "," + z + " to snow");
-//        if (true)
-//            return;
-//
-//        // get all cached regions
-//        Set<ProtectedRegion> regions = PLUGIN.regionChunkCache.get(new ChunkCoordIntPair(x, z));
-//        if (regions == null || regions.size() == 0)
-//            return;
-//
-//        RegionManager manager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(world));
-//        if (manager == null)
-//            return;
-//        // find things to change
-//        for (ProtectedRegion region : regions) {
-//            // check if in the correct world
-//            WeatherType weather = region.getFlag(FakeSnow.CUSTOM_WEATHER_TYPE);
-//            if (!manager.hasRegion(region.getId()) || weather == null)
-//                continue;
-//
-//            BlockVector3 min = region.getMinimumPoint(), max = region.getMaximumPoint();
-//            int blocks = 0;
-//            for (int i = Math.max(min.getBlockX(), x * 16); i < Math.min(max.getBlockX(), x * 16 + 15); i += 4) {
-//                for (int j = world.getMinHeight(); j < world.getMaxHeight(); j += 4) {
-//                    for (int k = Math.max(min.getBlockZ(), z * 16); k < Math.min(max.getBlockZ(), z * 16 + 15); k += 4) {
-//                        blocks += 64;
-//                        setBiome(nmsChunk, fakeSections, i, j, k, weather.biome);
-//                    }
-//                }
-//            }
-//            PLUGIN.logger.info("Changed " + blocks + " for chunk " + nmsChunk.getPos().x + ", " + nmsChunk.getPos().z + " to " + weather);
-//        }
-    }
-
     private static LevelChunkSection[] copyChunkSections(LevelChunk nmsChunk, LevelChunkSection[] originalSections, WeatherCache.WorldCache worldCache) {
         int chunkX = nmsChunk.locX;
         int chunkZ = nmsChunk.locZ;
@@ -185,9 +150,6 @@ public class PacketListener extends PacketAdapter {
 
         long copyTime = System.nanoTime();
 
-        applyRegions(world, nmsChunk, x, z, fakeSections, applicableRegions);
-        long calcRegionTime = System.nanoTime();
-
         // paper xray
         ChunkPacketBlockController chunkPacketBlockController = null;
         if (PAPER_XRAY) {
@@ -223,14 +185,13 @@ public class PacketListener extends PacketAdapter {
         }
 
         long endTime = System.nanoTime();
-        if (x == 0 && z == 0) {
+        if (Config.debug) {
             PLUGIN.logger.info("""
                     Finished processing chunk (%d, %d), timings:
-                    preprocessing: %dns, copy: %dns, region calc: %dns,
+                    preprocessing: %dns, copy: %dns,
                     write buffer: %dns, total: %dns
                     """.formatted(
-                    x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime), (calcRegionTime - copyTime),
-                    (endTime - calcRegionTime), (endTime - startTime)
+                    x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime), (endTime - copyTime), (endTime - startTime)
             ));
         }
     }

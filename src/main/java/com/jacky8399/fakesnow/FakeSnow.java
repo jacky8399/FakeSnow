@@ -7,6 +7,7 @@ import com.sk89q.worldguard.protection.flags.EnumFlag;
 import com.sk89q.worldguard.protection.flags.registry.FlagConflictException;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.logging.Logger;
 
@@ -25,6 +26,9 @@ public final class FakeSnow extends JavaPlugin {
 
     private static FakeSnow INSTANCE;
     public Logger logger;
+
+    private BukkitTask regionRefreshTask;
+
     @Override
     public void onEnable() {
         INSTANCE = this;
@@ -37,15 +41,26 @@ public final class FakeSnow extends JavaPlugin {
         getCommand("fakesnow").setExecutor(new CommandFakesnow());
         ProtocolLibrary.getProtocolManager().addPacketListener(new PacketListener());
 
-        // run immediately
-        WeatherCache.refreshCache();
-        // regularly reload regions
-        Bukkit.getScheduler().runTaskTimer(this, WeatherCache::refreshCache, 20,120 * 20);
+        saveDefaultConfig();
+        reloadConfig();
     }
 
     @Override
     public void onDisable() {
         WeatherCache.worldCache.clear();
+    }
+
+    @Override
+    public void reloadConfig() {
+        super.reloadConfig();
+        Config.reloadConfig(getConfig());
+        if (regionRefreshTask != null) {
+            regionRefreshTask.cancel();
+        }
+        if (Config.regionRefreshInterval != 0) {
+            regionRefreshTask = Bukkit.getScheduler().runTaskTimer(this, WeatherCache::refreshCache,
+                    1, Config.regionRefreshInterval * 20L);
+        }
     }
 
     public static FakeSnow get() {

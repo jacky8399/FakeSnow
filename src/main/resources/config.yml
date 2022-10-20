@@ -1,0 +1,8 @@
+# Whether to display timings information in the console
+# Should be set to false for production servers!
+debug: false
+
+# Seconds between region refreshes, set to 0 to disable
+# If disabled, weather effects must be reloaded using /fakesnow refreshregions
+# WARNING: a short interval will cause performance issues!
+region-refresh-interval: 120

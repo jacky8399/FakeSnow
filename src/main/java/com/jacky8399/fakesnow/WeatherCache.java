@@ -157,14 +157,15 @@ public class WeatherCache {
         }
 
         long queryTime = System.nanoTime();
-        if (chunk.getX() == 0 && chunk.getZ() == 0) {
-            LOGGER.info("Caching timings: chunk query: %dns, blocks query: %dns".formatted(chunkTime - startTime, queryTime - chunkTime));
+        if (Config.debug) {
+            LOGGER.info("Caching chunk (%d, %d) (contains weather data: %b):\n chunk query: %dns, blocks query: %dns"
+                    .formatted(chunk.getX(), chunk.getZ(), changed,
+                            chunkTime - startTime, queryTime - chunkTime));
         }
 
         if (changed) {
             // chunk contains custom weather type
             cache.chunkMap.put(new ChunkPos(chunk.getX(), chunk.getZ()), new ChunkCache(chunkCache));
-            LOGGER.info("Chunk (%d,%d) contains custom weather".formatted(chunk.getX(), chunk.getZ()));
         }
     }
 
