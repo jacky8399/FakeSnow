@@ -15,15 +15,7 @@ java {
 repositories {
     mavenCentral()
     maven {
-        name = 'spigotmc-repo'
-        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
-    }
-    maven {
         url = uri("https://papermc.io/repo/repository/maven-public/")
-    }
-    maven {
-        name = 'sonatype'
-        url = 'https://oss.sonatype.org/content/groups/public/'
     }
     maven {
         name = 'ProtocolLib'
@@ -38,7 +30,7 @@ repositories {
 
 dependencies {
     paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:1.19.2-R0.1-SNAPSHOT")
-    compileOnly group: "com.comphenix.protocol", name: "ProtocolLib", version: "4.8.0"
+    compileOnly "com.comphenix.protocol:ProtocolLib:5.0.0-SNAPSHOT"
     compileOnly('com.sk89q.worldguard:worldguard-bukkit:7.0.6') {
 
     }

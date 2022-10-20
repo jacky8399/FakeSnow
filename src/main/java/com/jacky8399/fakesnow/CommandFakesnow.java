@@ -8,11 +8,11 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 public class CommandFakesnow implements TabExecutor {
     @Override
@@ -22,13 +22,10 @@ public class CommandFakesnow implements TabExecutor {
         switch (args[0]) {
             case "refreshregions": {
                 // Clear old cache first
-                FakeSnow.get().regionChunkCache.clear();
-                FakeSnow.get().regionWorldCache.clear();
-                for (World world : Bukkit.getWorlds())
-                    Events.addRegionsToCache(world);
+                WeatherCache.refreshCache();
                 sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds().size() + " worlds");
-                sender.sendMessage(ChatColor.GREEN + "Discovered " +
-                        FakeSnow.get().regionChunkCache.values().stream().mapToInt(Set::size).sum() + " region(s)");
+//                sender.sendMessage(ChatColor.GREEN + "Discovered " +
+//                        FakeSnow.get().regionChunkCache.values().stream().mapToInt(Set::size).sum() + " region(s)");
                 return true;
             }
             case "realbiome": {
@@ -59,20 +56,36 @@ public class CommandFakesnow implements TabExecutor {
                         location.getBlock().getBiome().getKey().toString());
                 return true;
             }
+            case "checkchunk": {
+                var location = ((Player) sender).getLocation();
+                var worldCache = WeatherCache.getWorldCache(location.getWorld());
+                var chunkCache = worldCache.getChunkCache(location.getBlockX() / 16, location.getBlockZ() / 16);
+                if (chunkCache == null) {
+                    sender.sendMessage(ChatColor.RED + "No chunk cache");
+                } else {
+                    sender.sendMessage(ChatColor.GREEN + "Has chunk cache");
+                }
+            }
         }
         sender.sendMessage(ChatColor.RED + "/fakesnow <refreshregions/realbiome>");
         return false;
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
         if (args.length <= 1) {
             return Arrays.asList("refreshregions", "realbiome");
-        } else if ("realbiome".equals(args[0]) && args.length <= 5 && sender instanceof Player) {
+        } else if ("realbiome".equals(args[0]) && args.length <= 5 && sender instanceof Player player) {
             // position of player
-            Location location = ((Player) sender).getLocation();
-            String[] pos = {""+location.getBlockX(), ""+location.getBlockY(), ""+location.getBlockZ(), location.getWorld().getName()};
-            return Collections.singletonList(pos[args.length - 2]);
+            Location location = player.getLocation();
+
+            return Collections.singletonList(switch (args.length) {
+                case 2 -> ""+location.getBlockX();
+                case 3 -> ""+location.getBlockY();
+                case 4 -> ""+location.getBlockZ();
+                case 5 -> location.getWorld().getName();
+                default -> throw new IllegalArgumentException();
+            });
         } else {
             return Collections.emptyList();
         }

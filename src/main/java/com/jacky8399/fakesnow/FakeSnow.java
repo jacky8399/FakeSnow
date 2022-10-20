@@ -2,19 +2,12 @@ package com.jacky8399.fakesnow;
 
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.utility.MinecraftVersion;
-import com.comphenix.protocol.wrappers.ChunkCoordIntPair;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.protection.flags.EnumFlag;
 import com.sk89q.worldguard.protection.flags.registry.FlagConflictException;
-import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.WeakHashMap;
 import java.util.logging.Logger;
 
 public final class FakeSnow extends JavaPlugin {
@@ -29,9 +22,6 @@ public final class FakeSnow extends JavaPlugin {
             throw new Error("Another plugin already registered 'custom-weather-type' flag!", e);
         }
     }
-
-    public Map<ChunkCoordIntPair, Set<ProtectedRegion>> regionChunkCache = new HashMap<>();
-    public Map<World, ProtectedRegion> regionWorldCache = new WeakHashMap<>();
 
     private static FakeSnow INSTANCE;
     public Logger logger;
@@ -48,15 +38,14 @@ public final class FakeSnow extends JavaPlugin {
         ProtocolLibrary.getProtocolManager().addPacketListener(new PacketListener());
 
         // run immediately
-        Bukkit.getWorlds().forEach(Events::addRegionsToCache);
+        WeatherCache.refreshCache();
         // regularly reload regions
-        Bukkit.getScheduler().runTaskTimer(this, () -> Bukkit.getWorlds().forEach(Events::addRegionsToCache), 20,60 * 20);
+        Bukkit.getScheduler().runTaskTimer(this, WeatherCache::refreshCache, 20,120 * 20);
     }
 
     @Override
     public void onDisable() {
-        regionChunkCache.clear();
-        regionWorldCache.clear();
+        WeatherCache.worldCache.clear();
     }
 
     public static FakeSnow get() {

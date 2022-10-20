@@ -3,16 +3,8 @@ package com.jacky8399.fakesnow;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
-import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.ChunkCoordIntPair;
 import com.destroystokyo.paper.antixray.ChunkPacketBlockController;
-import com.google.common.collect.Maps;
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldguard.WorldGuard;
-import com.sk89q.worldguard.protection.managers.RegionManager;
-import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.Holder;
@@ -30,31 +22,19 @@ import org.bukkit.craftbukkit.v1_19_R1.block.CraftBlock;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Field;
-import java.util.Map;
-import java.util.Set;
+import java.util.EnumMap;
+import java.util.List;
 
 public class PacketListener extends PacketAdapter {
     private static final FakeSnow PLUGIN = FakeSnow.get();
     public PacketListener() {
-        super(PLUGIN, ListenerPriority.NORMAL, PacketType.Play.Server.MAP_CHUNK);
+        super(PLUGIN, ListenerPriority.NORMAL, List.of(PacketType.Play.Server.MAP_CHUNK));
     }
 
-    private static Map.Entry<Biome, Holder<net.minecraft.world.level.biome.Biome>> cache;
     private static void setBiome(LevelChunk chunk, LevelChunkSection[] sections, int x, int y, int z, Biome biome) {
-        Holder<net.minecraft.world.level.biome.Biome> holder;
-        if (cache != null && biome == cache.getKey()) {
-            holder = cache.getValue();
-        } else {
-            holder = CraftBlock.biomeToBiomeBase(chunk.biomeRegistry, biome);
-            cache = Maps.immutableEntry(biome, holder);
-        }
         int idx = chunk.getSectionIndex(y);
-        try {
-            sections[idx].setBiome((x >> 2) & 3, (y >> 2) & 3, (z >> 2) & 3, holder);
-        } catch (Throwable e) {
-            PLUGIN.logger.severe("Failed to set biome for chunk " + chunk.getPos() + " at (" + x + ", " + y + ", " + z +") to " + biome.name());
-            e.printStackTrace();
-        }
+        Holder<net.minecraft.world.level.biome.Biome> holder = CraftBlock.biomeToBiomeBase(chunk.biomeRegistry, biome);
+        sections[idx].setBiome((x >> 2) & 3, (y >> 2) & 3, (z >> 2) & 3, holder);
     }
     private static void getBiome(LevelChunk chunk, LevelChunkSection[] sections, int x, int y, int z) {
         int idx = chunk.getSectionIndex(y);
@@ -67,53 +47,90 @@ public class PacketListener extends PacketAdapter {
         }
     }
 
-    private static void calculateRegions(World world, LevelChunk nmsChunk, int x, int z, LevelChunkSection[] fakeSections) {
-        // check for __global__ first
-        ProtectedRegion globalRegion = PLUGIN.regionWorldCache.get(world);
-        if (globalRegion != null) {
-            WeatherType weatherType = globalRegion.getFlag(FakeSnow.CUSTOM_WEATHER_TYPE);
-            if (weatherType != null) {
-                // set entire chunk to be that biome
-                for (int i = 0; i < 15; i += 4) {
-                    for (int k = 0; k < 15; k += 4) {
-                        for (int j = world.getMinHeight(); j < world.getMaxHeight(); j += 4) {
-                            setBiome(nmsChunk, fakeSections, i, j, k, weatherType.biome);
+    private static void applyRegions(World world, LevelChunk nmsChunk, int x, int z, LevelChunkSection[] fakeSections, WeatherCache.WorldCache worldCache) {
+//
+////        PLUGIN.logger.info("Changed chunk " + x + "," + z + " to snow");
+//        if (true)
+//            return;
+//
+//        // get all cached regions
+//        Set<ProtectedRegion> regions = PLUGIN.regionChunkCache.get(new ChunkCoordIntPair(x, z));
+//        if (regions == null || regions.size() == 0)
+//            return;
+//
+//        RegionManager manager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(world));
+//        if (manager == null)
+//            return;
+//        // find things to change
+//        for (ProtectedRegion region : regions) {
+//            // check if in the correct world
+//            WeatherType weather = region.getFlag(FakeSnow.CUSTOM_WEATHER_TYPE);
+//            if (!manager.hasRegion(region.getId()) || weather == null)
+//                continue;
+//
+//            BlockVector3 min = region.getMinimumPoint(), max = region.getMaximumPoint();
+//            int blocks = 0;
+//            for (int i = Math.max(min.getBlockX(), x * 16); i < Math.min(max.getBlockX(), x * 16 + 15); i += 4) {
+//                for (int j = world.getMinHeight(); j < world.getMaxHeight(); j += 4) {
+//                    for (int k = Math.max(min.getBlockZ(), z * 16); k < Math.min(max.getBlockZ(), z * 16 + 15); k += 4) {
+//                        blocks += 64;
+//                        setBiome(nmsChunk, fakeSections, i, j, k, weather.biome);
+//                    }
+//                }
+//            }
+//            PLUGIN.logger.info("Changed " + blocks + " for chunk " + nmsChunk.getPos().x + ", " + nmsChunk.getPos().z + " to " + weather);
+//        }
+    }
+
+    private static LevelChunkSection[] copyChunkSections(LevelChunk nmsChunk, LevelChunkSection[] originalSections, WeatherCache.WorldCache worldCache) {
+        int chunkX = nmsChunk.locX;
+        int chunkZ = nmsChunk.locZ;
+
+        LevelChunkSection[] fakeSections = new LevelChunkSection[originalSections.length];
+        var biomeRegistry = nmsChunk.biomeRegistry;
+
+        var weatherToNmsBiomeMap = new EnumMap<WeatherType, Holder<net.minecraft.world.level.biome.Biome>>(WeatherType.class);
+        for (var weatherType : WeatherType.values()) {
+            weatherToNmsBiomeMap.put(weatherType, CraftBlock.biomeToBiomeBase(biomeRegistry, weatherType.biome));
+        }
+
+        WeatherCache.ChunkCache chunkCache = worldCache.getChunkCache(chunkX, chunkZ);
+        WeatherType globalWeather = worldCache.globalWeather();
+
+        for (int idx = 0; idx < originalSections.length; idx++) {
+            var originalSection = originalSections[idx];
+            PalettedContainer<Holder<net.minecraft.world.level.biome.Biome>> container;
+            if (worldCache.isSectionUniform(chunkX, chunkZ, idx)) {
+                // globalWeather can't be null
+                var uniformBiomeHolder = weatherToNmsBiomeMap.get(worldCache.globalWeather());
+                container = new PalettedContainer<>(nmsChunk.biomeRegistry.asHolderIdMap(), uniformBiomeHolder, PalettedContainer.Strategy.SECTION_BIOMES);
+            } else {
+                var originalBiomes = (PalettedContainer<Holder<net.minecraft.world.level.biome.Biome>>) originalSection.getBiomes();
+                // apparently PalettedContainer#copy() causes weird side effects
+                // just copy the biomes block by block
+                container = originalBiomes.recreate();
+                for (int j = 0; j < 4; j++) {
+                    int y = j << 2;
+                    for (int i = 0; i < 4; i++) {
+                        int x = i << 2;
+                        for (int k = 0; k < 4; k++) {
+                            int z = k << 2;
+                            var blockWeather = chunkCache.getBlockWeather(idx, x, y, z);
+                            if (blockWeather != null) {
+                                container.set(i, j, k, weatherToNmsBiomeMap.get(blockWeather));
+                            } else if (globalWeather != null) {
+                                container.set(i, j, k, weatherToNmsBiomeMap.get(globalWeather));
+                            } else {
+                                container.set(i, j, k, originalBiomes.get(i, j, k));
+                            }
                         }
                     }
                 }
-                PLUGIN.logger.info("Changed entire chunk " + nmsChunk.getPos().x + ", " + nmsChunk.getPos().z + " to " + weatherType);
             }
+            fakeSections[idx] = new LevelChunkSection(originalSection.bottomBlockY() >> 4, originalSection.getStates(), container);
         }
-        if (true)
-            return;
 
-        // get all cached regions
-        Set<ProtectedRegion> regions = PLUGIN.regionChunkCache.get(new ChunkCoordIntPair(x, z));
-        if (regions == null || regions.size() == 0)
-            return;
-
-        RegionManager manager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(world));
-        if (manager == null)
-            return;
-        // find things to change
-        for (ProtectedRegion region : regions) {
-            // check if in the correct world
-            WeatherType weather = region.getFlag(FakeSnow.CUSTOM_WEATHER_TYPE);
-            if (!manager.hasRegion(region.getId()) || weather == null)
-                continue;
-
-            BlockVector3 min = region.getMinimumPoint(), max = region.getMaximumPoint();
-            int blocks = 0;
-            for (int i = Math.max(min.getBlockX(), x * 16); i < Math.min(max.getBlockX(), x * 16 + 15); i += 4) {
-                for (int j = world.getMinHeight(); j < world.getMaxHeight(); j += 4) {
-                    for (int k = Math.max(min.getBlockZ(), z * 16); k < Math.min(max.getBlockZ(), z * 16 + 15); k += 4) {
-                        blocks += 64;
-                        setBiome(nmsChunk, fakeSections, i, j, k, weather.biome);
-                    }
-                }
-            }
-            PLUGIN.logger.info("Changed " + blocks + " for chunk " + nmsChunk.getPos().x + ", " + nmsChunk.getPos().z + " to " + weather);
-        }
+        return fakeSections;
     }
 
     private static Field BUFFER_FIELD;
@@ -146,31 +163,33 @@ public class PacketListener extends PacketAdapter {
         World world = player.getWorld();
         if (world.getEnvironment() != World.Environment.NORMAL)
             return;
-        ClientboundLevelChunkWithLightPacket packet = (ClientboundLevelChunkWithLightPacket) event.getPacket().getHandle();
+        var packet = (ClientboundLevelChunkWithLightPacket) event.getPacket().getHandle();
+        int x = packet.getX();
+        int z = packet.getZ();
 
-        int x = packet.getX(), z = packet.getZ();
+        var applicableRegions = WeatherCache.getWorldCache(world);
+        if (applicableRegions == null || !applicableRegions.hasChunk(x, z))
+            return;
+
         Chunk chunk = world.getChunkAt(x, z);
         LevelChunk nmsChunk = ((CraftChunk) chunk).getHandle();
 
         ClientboundLevelChunkPacketData data = packet.getChunkData();
 
-        // create fake chunk sections
-        LevelChunkSection[] originalSections = nmsChunk.getSections(), fakeSections = new LevelChunkSection[originalSections.length];
+        long preprocessingTime = System.nanoTime();
 
-        for (int i = 0; i < originalSections.length; i++) {
-            var original = originalSections[i];
-            // copy!!!!
-            var originalBiomes = (PalettedContainer<Holder<net.minecraft.world.level.biome.Biome>>) original.getBiomes();
-            var palette = originalBiomes.copy();
-            fakeSections[i] = new LevelChunkSection(original.bottomBlockY() >> 4, original.getStates(), palette);
-        }
+        // create fake chunk sections
+        LevelChunkSection[] originalSections = nmsChunk.getSections();
+        LevelChunkSection[] fakeSections = copyChunkSections(nmsChunk, originalSections, applicableRegions);
+
+
         long copyTime = System.nanoTime();
 
-        calculateRegions(world, nmsChunk, x, z, fakeSections);
+        applyRegions(world, nmsChunk, x, z, fakeSections, applicableRegions);
         long calcRegionTime = System.nanoTime();
 
         // paper xray
-        Object chunkPacketBlockController = null;
+        ChunkPacketBlockController chunkPacketBlockController = null;
         if (PAPER_XRAY) {
             chunkPacketBlockController = nmsChunk.getLevel().chunkPacketBlockController;
         }
@@ -188,24 +207,32 @@ public class PacketListener extends PacketAdapter {
             FriendlyByteBuf friendlyByteBuf = new FriendlyByteBuf(byteBuf);
             for (LevelChunkSection section : fakeSections) {
                 if (PAPER_XRAY) {
-                    var info = ((ChunkPacketBlockController) chunkPacketBlockController)
-                            .getChunkPacketInfo(packet, nmsChunk);
-                    info.setBuffer(newBuffer);
+                    var info = chunkPacketBlockController.getChunkPacketInfo(packet, nmsChunk);
+                    if (info != null)
+                        info.setBuffer(newBuffer);
                     section.write(friendlyByteBuf, info);
                 } else {
+                    // noinspection deprecation
                     section.write(friendlyByteBuf);
                 }
             }
             BUFFER_FIELD.set(data, newBuffer);
-            event.setPacket(new PacketContainer(PacketType.Play.Server.MAP_CHUNK, packet));
+            packet.setReady(true);
         } catch (IllegalAccessException e) {
             e.printStackTrace();
         }
 
         long endTime = System.nanoTime();
-//        PLUGIN.logger.info("Finished processing chunk (" + x + ", " + z + "), timings: \n" +
-//                "copy: " + (copyTime - startTime) + "ns, region calc: " + (calcRegionTime - copyTime) + "ns, " +
-//                "write buffer: " + (endTime - calcRegionTime) + "ns, total: " + (endTime - startTime) + "ns");
+        if (x == 0 && z == 0) {
+            PLUGIN.logger.info("""
+                    Finished processing chunk (%d, %d), timings:
+                    preprocessing: %dns, copy: %dns, region calc: %dns,
+                    write buffer: %dns, total: %dns
+                    """.formatted(
+                    x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime), (calcRegionTime - copyTime),
+                    (endTime - calcRegionTime), (endTime - startTime)
+            ));
+        }
     }
 
 }
