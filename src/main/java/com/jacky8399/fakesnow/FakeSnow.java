@@ -5,6 +5,7 @@ import com.comphenix.protocol.utility.MinecraftVersion;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.protection.flags.EnumFlag;
 import com.sk89q.worldguard.protection.flags.registry.FlagConflictException;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -43,6 +44,8 @@ public final class FakeSnow extends JavaPlugin {
 
         saveDefaultConfig();
         reloadConfig();
+
+        new Metrics(this, 16697);
     }
 
     @Override

@@ -1,4 +1,5 @@
 plugins {
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
     id 'java-library'
     id 'idea'
     id 'io.papermc.paperweight.userdev' version "1.3.8"
@@ -31,12 +32,8 @@ repositories {
 dependencies {
     paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:1.19.2-R0.1-SNAPSHOT")
     compileOnly "com.comphenix.protocol:ProtocolLib:5.0.0-SNAPSHOT"
-    compileOnly('com.sk89q.worldguard:worldguard-bukkit:7.0.6') {
-
-    }
-//    compileOnly('com.sk89q.worldedit:worldedit-bukkit:7.2.0') {
-//        transitive = false
-//    }
+    compileOnly('com.sk89q.worldguard:worldguard-bukkit:7.0.6')
+    implementation("org.bstats:bstats-bukkit:3.0.0")
 }
 
 processResources {
@@ -46,6 +43,10 @@ processResources {
     filesMatching('plugin.yml') {
         expand props
     }
+}
+
+shadowJar {
+    relocate "org.bstats", "com.jacky8399.fakesnow.bstats"
 }
 
 tasks.assemble.dependsOn reobfJar
