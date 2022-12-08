@@ -19,7 +19,7 @@ import java.util.logging.Logger;
 public class WeatherCache {
     private static final Logger LOGGER = FakeSnow.get().logger;
 
-    private record ChunkPos(int x, int z) {
+    public record ChunkPos(int x, int z) {
         @Override
         public int hashCode() {
             // ChunkPos#hash

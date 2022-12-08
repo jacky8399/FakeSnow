@@ -45,6 +45,8 @@ public final class FakeSnow extends JavaPlugin {
         saveDefaultConfig();
         reloadConfig();
 
+        WeatherCache.refreshCache();
+
         new Metrics(this, 16697);
     }
 
@@ -62,7 +64,7 @@ public final class FakeSnow extends JavaPlugin {
         }
         if (Config.regionRefreshInterval != 0) {
             regionRefreshTask = Bukkit.getScheduler().runTaskTimer(this, WeatherCache::refreshCache,
-                    1, Config.regionRefreshInterval * 20L);
+                    Config.regionRefreshInterval * 20L, Config.regionRefreshInterval * 20L);
         }
     }
 

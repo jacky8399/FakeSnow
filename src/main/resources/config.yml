@@ -11,4 +11,4 @@ use-fast-packet-handler: true
 # Seconds between region refreshes, set to 0 to disable
 # Weather effects can always be reloaded using /fakesnow refreshregions
 # WARNING: a short interval will cause performance issues!
-region-refresh-interval: 0
+region-refresh-interval: 120

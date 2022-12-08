@@ -12,6 +12,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class CommandFakesnow implements TabExecutor {
     @Override
@@ -20,7 +22,25 @@ public class CommandFakesnow implements TabExecutor {
             return false;
         switch (args[0]) {
             case "refreshregions" -> {
+                Map<World, WeatherType> worldWeather = WeatherCache.worldCache.entrySet().stream()
+                        .filter(entry -> entry.getValue().globalWeather() != null)
+                        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().globalWeather()));
                 WeatherCache.refreshCache();
+                // try to refresh all chunks
+                WeatherCache.worldCache.forEach((world, worldCache) -> {
+                    WeatherType newWeather = worldCache.globalWeather();
+                    if (newWeather != worldWeather.get(world)) {
+                        // __global__ has changed, refresh the whole world
+                        for (var chunk : world.getLoadedChunks()) {
+                            world.refreshChunk(chunk.getX(), chunk.getZ());
+                        }
+                    } else {
+                        for (WeatherCache.ChunkPos chunkPos : worldCache.chunkMap().keySet()) {
+                            world.refreshChunk(chunkPos.x(), chunkPos.z());
+                        }
+                    }
+                });
+
                 sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds().size() + " worlds, cached " +
                         WeatherCache.worldCache.values().stream()
                                 .mapToInt(worldCache -> worldCache.chunkMap().size())
