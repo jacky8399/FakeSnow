@@ -58,6 +58,7 @@ public class CommandFakesnow implements TabExecutor {
             case "reload" -> {
                 FakeSnow.get().reloadConfig();
                 sender.sendMessage(ChatColor.GREEN + "Configuration reloaded.");
+                return true;
             }
         }
         sender.sendMessage(ChatColor.RED + "/fakesnow <refreshregions/realbiome/reload>");

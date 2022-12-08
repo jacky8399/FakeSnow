@@ -15,6 +15,7 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.World;
@@ -24,6 +25,7 @@ import org.bukkit.entity.Player;
 
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.logging.Logger;
@@ -116,9 +118,11 @@ public class PacketListener extends PacketAdapter {
     }
 
     private static final Field BUFFER_FIELD;
+    private static Field PALETTE_FIELD;
+    private static Field BIT_STORAGE_FIELD;
     private static final boolean PAPER_XRAY; // whether paper xray information is required
     static {
-        Field bufferField = null;
+        Field bufferField = null, paletteField = null, bitStorageField = null;
         boolean paperXray;
         try {
             for (Field field : ClientboundLevelChunkPacketData.class.getDeclaredFields()) {
@@ -127,6 +131,7 @@ public class PacketListener extends PacketAdapter {
                     break;
                 }
             }
+
             if (bufferField == null) {
                 throw new Error("Couldn't find byte[] buffer");
             }
@@ -137,11 +142,11 @@ public class PacketListener extends PacketAdapter {
         } catch (ClassNotFoundException e) {
             paperXray = false;
         }
-        PAPER_XRAY = false && paperXray;
+        PAPER_XRAY = paperXray;
         BUFFER_FIELD = bufferField;
     }
-    @Override
-    public void onPacketSending(PacketEvent event) {
+
+    void updatePacketOld(PacketEvent event) {
         long startTime = System.nanoTime();
 
         Player player = event.getPlayer();
@@ -160,14 +165,6 @@ public class PacketListener extends PacketAdapter {
         LevelChunk nmsChunk = ((CraftChunk) chunk).getHandle();
 
         ClientboundLevelChunkPacketData data = packet.getChunkData();
-        // original data
-        byte[] buffer;
-        try {
-            buffer = (byte[]) BUFFER_FIELD.get(data);
-        } catch (ReflectiveOperationException ex) {
-            throw new Error("Error while reading buffer from chunk " + x + "," + z, ex);
-        }
-
         long preprocessingTime = System.nanoTime();
 
         // create fake chunk sections
@@ -181,7 +178,6 @@ public class PacketListener extends PacketAdapter {
         if (PAPER_XRAY) {
             chunkPacketBlockController = nmsChunk.getLevel().chunkPacketBlockController;
         }
-        int writtenBytes = 0;
         // write back to the buffer
         try {
             // ClientboundLevelChunkPacketData#calculateChunkSize
@@ -207,103 +203,172 @@ public class PacketListener extends PacketAdapter {
             }
             BUFFER_FIELD.set(data, newBuffer);
             packet.setReady(true);
-            writtenBytes = byteBuf.writerIndex(); // DEBUG
         } catch (IllegalAccessException e) {
             throw new Error("Failed to update packet for chunk " + x + ", " + z, e);
         }
 
         long endTime = System.nanoTime();
         if (Config.debug) {
-            LOGGER.info(("[Old] Finished processing chunk (%d, %d), " +
-                    "timings: preprocessing: %dns, copy: %dns, " +
+            debug(("[Old] Chunk (%d, %d), " +
+                    "preprocessing: %dns, copy: %dns, " +
                     "write buffer: %dns, total: %dns").formatted(x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime),
                     (endTime - copyTime), (endTime - startTime)));
         }
+    }
+
+    void updatePacketNew(PacketEvent event) {
+        Player player = event.getPlayer();
+        World world = player.getWorld();
+        if (world.getEnvironment() != World.Environment.NORMAL)
+            return;
+        var packet = (ClientboundLevelChunkWithLightPacket) event.getPacket().getHandle();
+        int x = packet.getX();
+        int z = packet.getZ();
+
+        var worldCache = WeatherCache.getWorldCache(world);
+        if (worldCache == null || !worldCache.hasChunk(x, z))
+            return;
+
+        Chunk chunk = world.getChunkAt(x, z);
+        LevelChunk nmsChunk = ((CraftChunk) chunk).getHandle();
+
+        ClientboundLevelChunkPacketData data = packet.getChunkData();
+        // create fake chunk sections
+        LevelChunkSection[] originalSections = nmsChunk.getSections();
+        // original data
+        byte[] buffer;
+        try {
+            buffer = (byte[]) BUFFER_FIELD.get(data);
+        } catch (ReflectiveOperationException ex) {
+            throw new Error("Error while reading buffer from chunk " + x + "," + z, ex);
+        }
+
+        byte[] expectedBuffer = null;
+        long oldTime = 0;
         if (Config.debug) {
-            int numOfSections = originalSections.length;
-            // try directly modifying the biome
-            int newBufferSize = 0;
-            var fakeBiomes = copyBiomes(nmsChunk, originalSections, worldCache);
-            long newCopyTime = System.nanoTime();
-            int[] statesSizes = new int[numOfSections];
-            int[] biomesSizes = new int[numOfSections];
-            for (int i = 0; i < numOfSections; i++) {
-                var section = originalSections[i];
-                int statesSize = statesSizes[i] = section.states.getSerializedSize();
-                int biomesSize = biomesSizes[i] = section.getBiomes().getSerializedSize();
-                if (statesSize == 4) {
-                    statesSizes[i] = 3;
-//                    biomesSizes[i] = 12;
-                }
-                // LevelChunkSection#getSerializedSize
-                newBufferSize += 2 + statesSize + fakeBiomes[i].getSerializedSize();
-            }
-            byte[] expectedBuffer;
+            long oldStartTime = System.nanoTime();
+            updatePacketOld(event);
+            oldTime = System.nanoTime() - oldStartTime;
             try {
                 expectedBuffer = (byte[]) BUFFER_FIELD.get(data);
-            }  catch (ReflectiveOperationException exception) {
-                throw new Error(exception);
+            } catch (ReflectiveOperationException ex) {
+                throw new Error("Error while reading buffer from chunk " + x + "," + z, ex);
             }
-            byte[] newBuffer = new byte[newBufferSize];
+        }
+        long startTime = System.nanoTime();
 
-            ByteBuf byteBuf = Unpooled.wrappedBuffer(newBuffer);
-            byteBuf.writerIndex(0);
-            int readIndex = 0;
-            FriendlyByteBuf friendlyByteBuf = new FriendlyByteBuf(byteBuf);
-            for (int i = 0; i < numOfSections; i++) {
-                // copy blockstates from original buffer
-                int size = 2 + statesSizes[i];
-                int writerIndex = byteBuf.writerIndex();
-                System.arraycopy(buffer, readIndex, newBuffer, writerIndex, size);
-                byteBuf.writerIndex(writerIndex + size); // move writer ahead
-                // write biomes
-                fakeBiomes[i].write(friendlyByteBuf);
-                // DEBUG: check mismatch
-//                int expectedSize = size + fakeBiomesSizes[i];
-//                int mismatch = Arrays.mismatch(expectedBuffer, writerIndex, writerIndex + expectedSize,
-//                        newBuffer, writerIndex, writerIndex + expectedSize);
-//                if (mismatch != -1) {
-//                    var builder = new StringBuilder();
-//                    builder.append("Mismatch at ").append(mismatch)
-//                            .append(" for statesSize=").append(statesSizes[i])
-//                            .append(", biomesSize=").append(biomesSizes[i])
-//                            .append(", fakeBiomesSize=").append(fakeBiomesSizes[i])
-//                            .append("\nwhile copying buffer[").append(readIndex).append(":").append(readIndex + size)
-//                            .append("] to newBuffer[").append(writerIndex).append(":").append(writerIndex + size).append("]")
-//                            .append('\n');
-//                    builder.append("Original: ");
-//                    printBytes(builder, buffer, readIndex, readIndex + size + biomesSizes[i], readIndex + mismatch, statesSizes[i]);
-//                    builder.append('\n');
-//                    builder.append("Expected: ");
-//                    printBytes(builder, expectedBuffer, writerIndex, writerIndex + expectedSize, writerIndex + mismatch, statesSizes[i]);
-//                    builder.append('\n');
-//                    builder.append("Got:      ");
-//                    printBytes(builder, newBuffer, writerIndex, writerIndex + expectedSize, writerIndex + mismatch, statesSizes[i]);
-//                    builder.append("\nWriter index is at ").append(friendlyByteBuf.writerIndex());
-//                    Bukkit.getConsoleSender().sendMessage(builder.toString());
-//                }
 
-                // skip (2 + states.getSize() + biomes.getSize()) from original buffer
-                readIndex += size + biomesSizes[i];
+        int numOfSections = originalSections.length;
+        // try directly modifying the biome
+        int newBufferSize = 0;
+        var fakeBiomes = copyBiomes(nmsChunk, originalSections, worldCache);
+
+        long copyTime = System.nanoTime();
+
+        int[] statesSizes = new int[numOfSections];
+        int[] biomesSizes = new int[numOfSections];
+        int[] fakeBiomesSizes = new int[numOfSections];
+        for (int i = 0; i < numOfSections; i++) {
+            var section = originalSections[i];
+            int statesSize = statesSizes[i] = section.states.getSerializedSize();
+            int biomesSize = biomesSizes[i] = section.getBiomes().getSerializedSize();
+            int fakeBiomesSize = fakeBiomesSizes[i] = fakeBiomes[i].getSerializedSize();
+            // getSerializedSize() may return a slightly larger size,
+            // which would be detrimental to the way we copy bytes.
+            // Try to fix this by basically guessing if the palette is of a troublesome size.
+            // See MC-131684, MC-242385
+            if (statesSize == 4) {
+                statesSizes[i] = 3;
+//                    biomesSizes[i] = 12;
+            }
+            // LevelChunkSection#getSerializedSize
+            newBufferSize += 2 + statesSize + fakeBiomesSize;
+        }
+
+        byte[] newBuffer = new byte[newBufferSize];
+
+        ByteBuf byteBuf = Unpooled.wrappedBuffer(newBuffer);
+        byteBuf.writerIndex(0);
+        int readIndex = 0;
+        FriendlyByteBuf friendlyByteBuf = new FriendlyByteBuf(byteBuf);
+        for (int i = 0; i < numOfSections; i++) {
+            // copy blockstates from original buffer
+            int size = 2 + statesSizes[i];
+            int writerIndex = byteBuf.writerIndex();
+            System.arraycopy(buffer, readIndex, newBuffer, writerIndex, size);
+            byteBuf.writerIndex(writerIndex + size); // move writer ahead
+            // write biomes
+            fakeBiomes[i].write(friendlyByteBuf);
+            // DEBUG: check mismatch
+            if (Config.debug) {
+                int expectedSize = size + fakeBiomesSizes[i];
+                int mismatch = Arrays.mismatch(expectedBuffer, writerIndex, writerIndex + expectedSize,
+                        newBuffer, writerIndex, writerIndex + expectedSize);
+                if (mismatch != -1) {
+                    var builder = new StringBuilder();
+                    builder.append("Mismatch at ").append(mismatch)
+                            .append(" for statesSize=").append(statesSizes[i])
+                            .append(", biomesSize=").append(biomesSizes[i])
+                            .append(", fakeBiomesSize=").append(fakeBiomesSizes[i])
+                            .append("\nwhile copying buffer[").append(readIndex).append(":").append(readIndex + size)
+                            .append("] to newBuffer[").append(writerIndex).append(":").append(writerIndex + size).append("]")
+                            .append('\n');
+                    builder.append("Original: ");
+                    printBytes(builder, buffer, readIndex, readIndex + size + biomesSizes[i], readIndex + mismatch, statesSizes[i]);
+                    builder.append('\n');
+                    builder.append("Expected: ");
+                    printBytes(builder, expectedBuffer, writerIndex, writerIndex + expectedSize, writerIndex + mismatch, statesSizes[i]);
+                    builder.append('\n');
+                    builder.append("Got:      ");
+                    printBytes(builder, newBuffer, writerIndex, writerIndex + expectedSize, writerIndex + mismatch, statesSizes[i]);
+                    builder.append("\nWriter index is at ").append(friendlyByteBuf.writerIndex());
+                    Bukkit.getConsoleSender().sendMessage(builder.toString());
+                }
             }
 
-            long newEndTime = System.nanoTime();
-            LOGGER.info("[New] copy: %dns, write: %dns, total: %dns".formatted(newCopyTime - endTime, newEndTime - newCopyTime, newEndTime - endTime));
-            // print debug information
-//            int mismatch = Arrays.mismatch(expectedBuffer, newBuffer);
-//            if (mismatch != -1) {
-//                LOGGER.warning("Mismatch at byte " + mismatch + " (expected " + expectedBuffer[mismatch] + ", got " + newBuffer[mismatch] + ")");
-//                LOGGER.warning("Blockstates sizes: " + Arrays.toString(statesSizes));
-//                LOGGER.warning("Biomes sizes: " + Arrays.toString(biomesSizes));
-//                LOGGER.warning("Fake biomes sizes: " + Arrays.toString(fakeBiomesSizes));
-//            }
+            // skip (2 + states.getSize() + biomes.getSize()) from original buffer
+            readIndex += size + biomesSizes[i];
+        }
+
+        // set buffer
+        try {
+            BUFFER_FIELD.set(data, newBuffer);
+        } catch (ReflectiveOperationException ex) {
+            throw new Error("Failed to set buffer for chunk " + x + "," + z, ex);
+        }
+
+        long endTime = System.nanoTime();
+        // print debug information
+        if (Config.debug) {
+            debug("[New] Chunk (%d, %d), copy: %dns, write: %dns, total: %dns (speedup: %.2f)".formatted(x, z,
+                    copyTime - startTime, endTime - copyTime, endTime - startTime, (double) oldTime / (endTime - startTime)));
+            int mismatch = Arrays.mismatch(expectedBuffer, newBuffer);
+            if (mismatch != -1) {
+                LOGGER.warning("Mismatch at byte " + mismatch + " (expected " + expectedBuffer[mismatch] + ", got " + newBuffer[mismatch] + ")");
+                LOGGER.warning("Blockstates sizes: " + Arrays.toString(statesSizes));
+                LOGGER.warning("Biomes sizes: " + Arrays.toString(biomesSizes));
+                LOGGER.warning("Fake biomes sizes: " + Arrays.toString(fakeBiomesSizes));
+            }
+        }
+    }
+
+    @Override
+    public void onPacketSending(PacketEvent event) {
+        if (Config.useFastPacketHandler) {
+            try {
+                updatePacketNew(event);
+            } catch (Exception exception) {
+                LOGGER.warning("Fast packet handler exception, falling back: " + exception);
+                updatePacketOld(event);
+            }
+        } else {
+            updatePacketOld(event);
         }
     }
 
     private static void debug(String string) {
         LOGGER.info(string);
     }
-
 
     private static final byte[] HEX_ARRAY = "0123456789ABCDEF".getBytes(StandardCharsets.US_ASCII);
     private static void printBytes(StringBuilder builder, byte[] arr, int from, int to, int mismatch, int statesSize) {

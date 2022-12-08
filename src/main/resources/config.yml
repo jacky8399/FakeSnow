@@ -1,8 +1,14 @@
-# Whether to display timings information in the console
+# Whether to display timings information in the console, and to verify the contents of the fast packet handler.
+# Will slow down the fast packet handler significantly.
 # Should be set to false for production servers!
 debug: false
 
+# Whether to use a much faster packet handler.
+# The fast packet handler should be significantly faster than the slow one.
+# However, it might send incorrect chunk data to clients in rare cases.
+use-fast-packet-handler: true
+
 # Seconds between region refreshes, set to 0 to disable
-# If disabled, weather effects must be reloaded using /fakesnow refreshregions
+# Weather effects can always be reloaded using /fakesnow refreshregions
 # WARNING: a short interval will cause performance issues!
-region-refresh-interval: 120
+region-refresh-interval: 0
