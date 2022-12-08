@@ -64,6 +64,10 @@ public class WeatherCache {
         public ChunkCache getChunkCache(int chunkX, int chunkZ) {
             return chunkMap.get(new ChunkPos(chunkX, chunkZ));
         }
+
+        public boolean removeChunkCache(int chunkX, int chunkZ) {
+            return chunkMap.remove(new ChunkPos(chunkX, chunkZ)) != null;
+        }
     }
 
     public record ChunkCache(WeatherType[][] chunkCache) {
