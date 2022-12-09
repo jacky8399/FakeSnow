@@ -54,8 +54,8 @@ public class PacketListener extends PacketAdapter {
     }
 
     private static PalettedContainer<Holder<Biome>>[] copyBiomes(LevelChunk nmsChunk, LevelChunkSection[] sections, WeatherCache.WorldCache worldCache) {
-        int chunkX = nmsChunk.locX;
-        int chunkZ = nmsChunk.locZ;
+        int chunkX = nmsChunk.getPos().x;
+        int chunkZ = nmsChunk.getPos().z;
 
         @SuppressWarnings("unchecked")
         PalettedContainer<Holder<Biome>>[] arr = new PalettedContainer[sections.length];
@@ -270,7 +270,7 @@ public class PacketListener extends PacketAdapter {
         int[] fakeBiomesSizes = new int[numOfSections];
         for (int i = 0; i < numOfSections; i++) {
             var section = originalSections[i];
-            int statesSize = statesSizes[i] = section.states.getSerializedSize();
+            int statesSize = statesSizes[i] = section.getStates().getSerializedSize();
             int biomesSize = biomesSizes[i] = section.getBiomes().getSerializedSize();
             int fakeBiomesSize = fakeBiomesSizes[i] = fakeBiomes[i].getSerializedSize();
             // getSerializedSize() may return a slightly larger size,
