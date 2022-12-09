@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.jacky8399'
-version = '1.3.1'
+version = '1.3.1.1'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -26,7 +26,6 @@ repositories {
         name = 'WorldGuard'
         url "https://maven.enginehub.org/repo/"
     }
-    mavenLocal()
 }
 
 dependencies {
