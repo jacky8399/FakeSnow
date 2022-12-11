@@ -3,10 +3,12 @@ version: '${version}'
 main: com.jacky8399.fakesnow.FakeSnow
 api-version: 1.19
 load: POSTWORLD
-depend: [ ProtocolLib, WorldGuard ]
+depend:
+  - ProtocolLib
+softdepend:
+  - WorldGuard
 authors: [ jacky8399 ]
-description: Make zones snow without changing the biome
-
+description: Clientside snow effects
 commands:
   fakesnow:
     permission: fakesnow.admin

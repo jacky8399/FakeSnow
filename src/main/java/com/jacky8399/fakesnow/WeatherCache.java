@@ -1,24 +1,14 @@
 package com.jacky8399.fakesnow;
 
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.math.Vector3;
-import com.sk89q.worldguard.WorldGuard;
-import com.sk89q.worldguard.protection.managers.RegionManager;
-import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.WeakHashMap;
-import java.util.logging.Logger;
 
 public class WeatherCache {
-    private static final Logger LOGGER = FakeSnow.get().logger;
-
     public record ChunkPos(int x, int z) {
         @Override
         public int hashCode() {
@@ -65,8 +55,8 @@ public class WeatherCache {
             return chunkMap.get(new ChunkPos(chunkX, chunkZ));
         }
 
-        public boolean removeChunkCache(int chunkX, int chunkZ) {
-            return chunkMap.remove(new ChunkPos(chunkX, chunkZ)) != null;
+        public ChunkCache removeChunkCache(int chunkX, int chunkZ) {
+            return chunkMap.remove(new ChunkPos(chunkX, chunkZ));
         }
     }
 
@@ -87,89 +77,7 @@ public class WeatherCache {
     public static void refreshCache() {
         worldCache.clear();
         for (World world : Bukkit.getWorlds()) {
-            var regionManager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(world));
-            if (regionManager == null)
-                continue;
-            // global weather
-            var globalRegion = regionManager.getRegion("__global__");
-            WeatherType globalWeather = null;
-            if (globalRegion != null) {
-                globalWeather = globalRegion.getFlag(FakeSnow.CUSTOM_WEATHER_TYPE);
-            }
-
-            var loadedChunks = world.getLoadedChunks();
-            var weatherCache = new WorldCache(globalWeather, new HashMap<>());
-
-            worldCache.put(world, weatherCache);
-            for (var chunk : loadedChunks) {
-                addChunkToCache(weatherCache, world, regionManager, chunk);
-            }
-        }
-    }
-
-    private static final int QUERY_OFFSET = 2;
-    public static void addChunkToCache(WorldCache cache, World world, RegionManager regionManager, Chunk chunk) {
-        int xOffset = chunk.getX() * 16;
-        int zOffset = chunk.getZ() * 16;
-
-        int minHeight = world.getMinHeight();
-        int maxHeight = world.getMaxHeight();
-
-        WeatherType globalWeather = cache.globalWeather;
-
-        var regionContainer = WorldGuard.getInstance().getPlatform().getRegionContainer();
-        var query = regionContainer.createQuery();
-        var location = new com.sk89q.worldedit.util.Location(BukkitAdapter.adapt(world));
-
-        long startTime = System.nanoTime();
-
-        var fakeRegion = new ProtectedCuboidRegion("dummy", true,
-                BlockVector3.at(xOffset, minHeight, zOffset),
-                BlockVector3.at(xOffset + 15, maxHeight, zOffset + 15));
-        var chunkRegionSet = regionManager.getApplicableRegions(fakeRegion);
-
-        if (chunkRegionSet.isVirtual() || chunkRegionSet.size() == 0)
-            return; // chunk does not contain regions
-
-        long chunkTime = System.nanoTime();
-
-        // number of sections (subchunks)
-        WeatherType[][] chunkCache = new WeatherType[(maxHeight - minHeight) / 16][];
-        boolean changed = false;
-
-        for (int y = 0; y < maxHeight - minHeight; y += 4) {
-            int sectionIndex = y >> 4;
-            WeatherType[] sectionCache = chunkCache[sectionIndex];
-            if (sectionCache == null) {
-                sectionCache = new WeatherType[4 * 4 * 4];
-                chunkCache[sectionIndex] = sectionCache;
-            }
-
-            for (int x = 0; x < 16; x += 4) {
-                for (int z = 0; z < 16; z += 4) {
-                    location = location.setPosition(Vector3.at(xOffset + x + QUERY_OFFSET, y + minHeight, zOffset + z + QUERY_OFFSET));
-                    var regionSet = query.getApplicableRegions(location);
-                    // queryValue respects priority, and ignores multiple values
-                    // (from regions with the same priority)
-                    var blockWeather = regionSet.queryValue(null, FakeSnow.CUSTOM_WEATHER_TYPE);
-                    if (blockWeather == null || blockWeather == globalWeather)
-                        continue; // no need to store null/global weather
-                    sectionCache[getIndex(x, y & 0xF, z)] = blockWeather;
-                    changed = true;
-                }
-            }
-        }
-
-        long queryTime = System.nanoTime();
-        if (Config.debug) {
-            LOGGER.info("Caching chunk (%d, %d) (contains weather data: %b):\n chunk query: %dns, blocks query: %dns"
-                    .formatted(chunk.getX(), chunk.getZ(), changed,
-                            chunkTime - startTime, queryTime - chunkTime));
-        }
-
-        if (changed) {
-            // chunk contains custom weather type
-            cache.chunkMap.put(new ChunkPos(chunk.getX(), chunk.getZ()), new ChunkCache(chunkCache));
+            worldCache.put(world, FakeSnow.get().cacheHandler.loadWorld(world));
         }
     }
 
@@ -179,7 +87,7 @@ public class WeatherCache {
     }
     // Utilities
 
-    private static int getIndex(int x, int y, int z) {
+    public static int getIndex(int x, int y, int z) {
         // 0-15 to 0-3
         x >>= 2;
         y >>= 2;

@@ -118,11 +118,9 @@ public class PacketListener extends PacketAdapter {
     }
 
     private static final Field BUFFER_FIELD;
-    private static Field PALETTE_FIELD;
-    private static Field BIT_STORAGE_FIELD;
     private static final boolean PAPER_XRAY; // whether paper xray information is required
     static {
-        Field bufferField = null, paletteField = null, bitStorageField = null;
+        Field bufferField = null;
         boolean paperXray;
         try {
             for (Field field : ClientboundLevelChunkPacketData.class.getDeclaredFields()) {
@@ -133,17 +131,20 @@ public class PacketListener extends PacketAdapter {
             }
 
             if (bufferField == null) {
-                throw new Error("Couldn't find byte[] buffer");
+                throw new Error("Couldn't find byte[] buffer in ClientboundLevelChunkPacketData");
             }
             bufferField.setAccessible(true);
-
+        } catch (Exception ex) {
+            throw new Error("Couldn't find byte[] buffer in ClientboundLevelChunkPacketData", ex);
+        }
+        BUFFER_FIELD = bufferField;
+        try {
             Class.forName("com.destroystokyo.paper.antixray.ChunkPacketInfo");
             paperXray = true;
         } catch (ClassNotFoundException e) {
             paperXray = false;
         }
         PAPER_XRAY = paperXray;
-        BUFFER_FIELD = bufferField;
     }
 
     void updatePacketOld(PacketEvent event) {
@@ -209,18 +210,17 @@ public class PacketListener extends PacketAdapter {
 
         long endTime = System.nanoTime();
         if (Config.debug) {
-            debug(("[Old] Chunk (%d, %d), " +
-                    "preprocessing: %dns, copy: %dns, " +
-                    "write buffer: %dns, total: %dns").formatted(x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime),
-                    (endTime - copyTime), (endTime - startTime)));
+            LOGGER.info(("[Old] Chunk (%d, %d), " +
+                        "preprocessing: %dns, copy: %dns, " +
+                        "write buffer: %dns, total: %dns").formatted(x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime),
+                        (endTime - copyTime), (endTime - startTime)));
         }
     }
 
+    private static final boolean CHECK_MISMATCH = false;
     void updatePacketNew(PacketEvent event) {
         Player player = event.getPlayer();
         World world = player.getWorld();
-        if (world.getEnvironment() != World.Environment.NORMAL)
-            return;
         var packet = (ClientboundLevelChunkWithLightPacket) event.getPacket().getHandle();
         int x = packet.getX();
         int z = packet.getZ();
@@ -245,7 +245,7 @@ public class PacketListener extends PacketAdapter {
 
         byte[] expectedBuffer = null;
         long oldTime = 0;
-        if (Config.debug) {
+        if (CHECK_MISMATCH && Config.debug) {
             long oldStartTime = System.nanoTime();
             updatePacketOld(event);
             oldTime = System.nanoTime() - oldStartTime;
@@ -300,7 +300,8 @@ public class PacketListener extends PacketAdapter {
             // write biomes
             fakeBiomes[i].write(friendlyByteBuf);
             // DEBUG: check mismatch
-            if (Config.debug) {
+            //<editor-fold desc="Mismatch check">
+            if (CHECK_MISMATCH && Config.debug) {
                 int expectedSize = size + fakeBiomesSizes[i];
                 int mismatch = Arrays.mismatch(expectedBuffer, writerIndex, writerIndex + expectedSize,
                         newBuffer, writerIndex, writerIndex + expectedSize);
@@ -325,6 +326,7 @@ public class PacketListener extends PacketAdapter {
                     Bukkit.getConsoleSender().sendMessage(builder.toString());
                 }
             }
+            //</editor-fold>
 
             // skip (2 + states.getSize() + biomes.getSize()) from original buffer
             readIndex += size + biomesSizes[i];
@@ -340,15 +342,19 @@ public class PacketListener extends PacketAdapter {
         long endTime = System.nanoTime();
         // print debug information
         if (Config.debug) {
-            debug("[New] Chunk (%d, %d), copy: %dns, write: %dns, total: %dns (speedup: %.2f)".formatted(x, z,
-                    copyTime - startTime, endTime - copyTime, endTime - startTime, (double) oldTime / (endTime - startTime)));
-            int mismatch = Arrays.mismatch(expectedBuffer, newBuffer);
-            if (mismatch != -1) {
-                LOGGER.warning("Mismatch at byte " + mismatch + " (expected " + expectedBuffer[mismatch] + ", got " + newBuffer[mismatch] + ")");
-                LOGGER.warning("Blockstates sizes: " + Arrays.toString(statesSizes));
-                LOGGER.warning("Biomes sizes: " + Arrays.toString(biomesSizes));
-                LOGGER.warning("Fake biomes sizes: " + Arrays.toString(fakeBiomesSizes));
+            LOGGER.info("[New] Chunk (%d, %d), copy: %dns, write: %dns, total: %dns (vs old: %dns, speedup: %.2f)".formatted(x, z,
+                        copyTime - startTime, endTime - copyTime, endTime - startTime, oldTime, (double) oldTime / (endTime - startTime)));
+            //<editor-fold desc="Mismatch check">
+            if (CHECK_MISMATCH) {
+                int mismatch = Arrays.mismatch(expectedBuffer, newBuffer);
+                if (mismatch != -1) {
+                    LOGGER.warning("Mismatch at byte " + mismatch + " (expected " + expectedBuffer[mismatch] + ", got " + newBuffer[mismatch] + ")");
+                    LOGGER.warning("Blockstates sizes: " + Arrays.toString(statesSizes));
+                    LOGGER.warning("Biomes sizes: " + Arrays.toString(biomesSizes));
+                    LOGGER.warning("Fake biomes sizes: " + Arrays.toString(fakeBiomesSizes));
+                }
             }
+            //</editor-fold>
         }
     }
 
@@ -364,10 +370,6 @@ public class PacketListener extends PacketAdapter {
         } else {
             updatePacketOld(event);
         }
-    }
-
-    private static void debug(String string) {
-        LOGGER.info(string);
     }
 
     private static final byte[] HEX_ARRAY = "0123456789ABCDEF".getBytes(StandardCharsets.US_ASCII);
