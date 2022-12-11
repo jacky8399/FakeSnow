@@ -2,12 +2,12 @@ package com.jacky8399.fakesnow;
 
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.math.Vector3;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.protection.flags.EnumFlag;
 import com.sk89q.worldguard.protection.flags.registry.FlagConflictException;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
+import com.sk89q.worldguard.protection.regions.RegionQuery;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.jetbrains.annotations.Nullable;
@@ -15,10 +15,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
-import static com.jacky8399.fakesnow.WeatherCache.getIndex;
-
 public class WorldGuardCacheHandler implements CacheHandler {
-    private static Logger LOGGER;
+    private static final Logger LOGGER = FakeSnow.get().logger;
 
     public static EnumFlag<WeatherType> CUSTOM_WEATHER_TYPE;
 
@@ -33,10 +31,7 @@ public class WorldGuardCacheHandler implements CacheHandler {
                 throw new Error("Another plugin has already registered flag 'custom-weather-type'!", e);
             CUSTOM_WEATHER_TYPE = (EnumFlag<WeatherType>) flag;
         }
-    }
-
-    static {
-        tryAddFlag();
+        FakeSnow.get().logger.info("Registered WorldGuard flag 'custom-weather-type'");
     }
 
     @Override
@@ -71,16 +66,13 @@ public class WorldGuardCacheHandler implements CacheHandler {
 
         WeatherType globalWeather = cache.globalWeather();
 
-        var regionContainer = WorldGuard.getInstance().getPlatform().getRegionContainer();
-        var query = regionContainer.createQuery();
-        var location = new com.sk89q.worldedit.util.Location(BukkitAdapter.adapt(world));
-
         long startTime = System.nanoTime();
 
         var fakeRegion = new ProtectedCuboidRegion("dummy", true,
                 BlockVector3.at(xOffset, minHeight, zOffset),
                 BlockVector3.at(xOffset + 15, maxHeight, zOffset + 15));
-        var chunkRegionSet = regionManager.getApplicableRegions(fakeRegion);
+        // set is sorted by priority
+        var chunkRegionSet = regionManager.getApplicableRegions(fakeRegion, RegionQuery.QueryOption.COMPUTE_PARENTS);
 
         if (chunkRegionSet.isVirtual() || chunkRegionSet.size() == 0)
             return null; // chunk does not contain regions
@@ -90,34 +82,50 @@ public class WorldGuardCacheHandler implements CacheHandler {
         // number of sections (subchunks)
         WeatherType[][] chunkCache = new WeatherType[(maxHeight - minHeight) / 16][];
         boolean changed = false;
+        for (var region : chunkRegionSet) {
+            if (!region.isPhysicalArea())
+                continue;
+            WeatherType weatherType = region.getFlag(CUSTOM_WEATHER_TYPE);
+            // no need to store null/global weather
+            if (weatherType == null || weatherType == globalWeather)
+                continue;
+            var minPoint = region.getMinimumPoint();
+            var maxPoint = region.getMaximumPoint();
 
-        for (int y = 0; y < maxHeight - minHeight; y += 4) {
-            int sectionIndex = y >> 4;
-            WeatherType[] sectionCache = chunkCache[sectionIndex];
-            if (sectionCache == null) {
-                sectionCache = new WeatherType[4 * 4 * 4];
-                chunkCache[sectionIndex] = sectionCache;
-            }
+            // for loop endpoints
+            int minY = minPoint.getY() & ~3;
+            int maxY = (maxPoint.getY() + 1) & ~3;
+            // world coords to chunk coords (0-16), rounded to the closest multiple of 4
+            int minX = Math.max(xOffset, minPoint.getX()) & 15 & ~3;
+            int maxX = (Math.min(xOffset + 15, maxPoint.getX()) & 15) + 4 & ~3;
+            int minZ = Math.max(zOffset, minPoint.getX()) & 15 & ~3;
+            int maxZ = (Math.min(zOffset + 15, maxPoint.getZ()) & 15) + 4 & ~3;
+            if (Config.debug)
+                LOGGER.info("Region: %s, x: %d-%d, y: %d-%d, z: %d-%d".formatted(region.getId(), minX, maxX, minY, maxY, minZ, maxZ));
 
-            for (int x = 0; x < 16; x += 4) {
-                for (int z = 0; z < 16; z += 4) {
-                    location = location.setPosition(Vector3.at(xOffset + x + QUERY_OFFSET, y + minHeight, zOffset + z + QUERY_OFFSET));
-                    var regionSet = query.getApplicableRegions(location);
-                    // queryValue respects priority, and ignores multiple values
-                    // (from regions with the same priority)
-                    var blockWeather = regionSet.queryValue(null, WorldGuardCacheHandler.CUSTOM_WEATHER_TYPE);
-                    if (blockWeather == null || blockWeather == globalWeather)
-                        continue; // no need to store null/global weather
-                    sectionCache[getIndex(x, y & 0xF, z)] = blockWeather;
-                    changed = true;
+            for (int y = minY; y < maxY; y += 4) {
+                int sectionIndex = (y - minHeight) >> 4;
+                WeatherType[] sectionCache = chunkCache[sectionIndex];
+                if (sectionCache == null) {
+                    sectionCache = chunkCache[sectionIndex] = new WeatherType[4 * 4 * 4];
+                }
+                for (int x = minX; x < maxX; x += 4) {
+                    for (int z = minZ; z < maxZ; z += 4) {
+                        if (!region.contains(xOffset + x + QUERY_OFFSET, y + QUERY_OFFSET, zOffset + z + QUERY_OFFSET)) {
+                            continue;
+                        }
+
+                        sectionCache[((y & 0xF) << 2) | x | (z >> 2)] = weatherType;
+                        changed = true;
+                    }
                 }
             }
         }
 
         long queryTime = System.nanoTime();
         if (Config.debug) {
-            LOGGER.info("Caching chunk (%d, %d) (contains weather data: %b):\n chunk query: %dns, blocks query: %dns"
-                    .formatted(chunk.getX(), chunk.getZ(), changed,
+            LOGGER.info("Caching chunk (%d, %d) (number of regions: %d):\n chunk query: %dns, blocks query: %dns"
+                    .formatted(chunk.getX(), chunk.getZ(), chunkRegionSet.size(),
                             chunkTime - startTime, queryTime - chunkTime));
         }
 

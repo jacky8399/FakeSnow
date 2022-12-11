@@ -61,14 +61,15 @@ public class WeatherCache {
     }
 
     public record ChunkCache(WeatherType[][] chunkCache) {
-        @Nullable
-        public WeatherType[] getSectionCache(int sectionIndex) {
+        public @Nullable WeatherType @Nullable [] getSectionCache(int sectionIndex) {
             return chunkCache[sectionIndex];
         }
 
-        @Nullable
-        public WeatherType getBlockWeather(int sectionIndex, int x, int y, int z) {
-            return chunkCache[sectionIndex][getIndex(x, y, z)];
+        public @Nullable WeatherType getBlockWeather(int sectionIndex, int x, int y, int z) {
+            var sectionCache = getSectionCache(sectionIndex);
+            if (sectionCache != null)
+                return sectionCache[getIndex(x, y, z)];
+            return null;
         }
     }
 

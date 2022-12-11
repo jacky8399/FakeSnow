@@ -342,10 +342,11 @@ public class PacketListener extends PacketAdapter {
         long endTime = System.nanoTime();
         // print debug information
         if (Config.debug) {
-            LOGGER.info("[New] Chunk (%d, %d), copy: %dns, write: %dns, total: %dns (vs old: %dns, speedup: %.2f)".formatted(x, z,
-                        copyTime - startTime, endTime - copyTime, endTime - startTime, oldTime, (double) oldTime / (endTime - startTime)));
+            LOGGER.info("[New] Chunk (%d, %d), copy: %dns, write: %dns, total: %dns".formatted(x, z,
+                        copyTime - startTime, endTime - copyTime, endTime - startTime));
             //<editor-fold desc="Mismatch check">
             if (CHECK_MISMATCH) {
+                LOGGER.info("vs old (%dns), speedup: %.2f".formatted(oldTime, (double) oldTime / (endTime - startTime)));
                 int mismatch = Arrays.mismatch(expectedBuffer, newBuffer);
                 if (mismatch != -1) {
                     LOGGER.warning("Mismatch at byte " + mismatch + " (expected " + expectedBuffer[mismatch] + ", got " + newBuffer[mismatch] + ")");

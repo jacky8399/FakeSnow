@@ -14,8 +14,11 @@ public final class FakeSnow extends JavaPlugin {
 
     @Override
     public void onLoad() {
+        INSTANCE = this;
+        logger = getLogger();
         if (Bukkit.getPluginManager().getPlugin("WorldGuard") != null) {
             try {
+                WorldGuardCacheHandler.tryAddFlag();
                 cacheHandler = new WorldGuardCacheHandler();
             } catch (Error ignored) {
                 // WorldGuard not installed
@@ -30,8 +33,6 @@ public final class FakeSnow extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        INSTANCE = this;
-        logger = getLogger();
         if (!MinecraftVersion.atOrAbove(new MinecraftVersion("1.19")))
             throw new IllegalStateException("Only Minecraft 1.19 is supported");
 
