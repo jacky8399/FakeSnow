@@ -8,3 +8,7 @@ pluginManagement {
 }
 
 rootProject.name = 'FakeSnow'
+include 'v1_19_R1'
+include 'common'
+include 'v1_19_R2'
+

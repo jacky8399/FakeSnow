@@ -75,10 +75,10 @@ public class WeatherCache {
 
     static final WeakHashMap<World, WorldCache> worldCache = new WeakHashMap<>();
 
-    public static void refreshCache() {
+    public static void refreshCache(CacheHandler cacheHandler) {
         worldCache.clear();
         for (World world : Bukkit.getWorlds()) {
-            worldCache.put(world, FakeSnow.get().cacheHandler.loadWorld(world));
+            worldCache.put(world, cacheHandler.loadWorld(world));
         }
     }
 

@@ -1,10 +1,11 @@
-package com.jacky8399.fakesnow;
+package com.jacky8399.fakesnow.v1_19_R2;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.ListenerPriority;
-import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
 import com.destroystokyo.paper.antixray.ChunkPacketBlockController;
+import com.jacky8399.fakesnow.Config;
+import com.jacky8399.fakesnow.PacketListener;
+import com.jacky8399.fakesnow.WeatherCache;
+import com.jacky8399.fakesnow.WeatherType;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.Holder;
@@ -19,38 +20,20 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.v1_19_R1.CraftChunk;
-import org.bukkit.craftbukkit.v1_19_R1.block.CraftBlock;
+import org.bukkit.craftbukkit.v1_19_R2.CraftChunk;
+import org.bukkit.craftbukkit.v1_19_R2.block.CraftBlock;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.EnumMap;
-import java.util.List;
-import java.util.logging.Logger;
 
-public class PacketListener extends PacketAdapter {
-    private static final FakeSnow PLUGIN = FakeSnow.get();
-    private static final Logger LOGGER = PLUGIN.logger;
-    public PacketListener() {
-        super(PLUGIN, ListenerPriority.NORMAL, List.of(PacketType.Play.Server.MAP_CHUNK));
-    }
+public class PacketListener_v1_19_R2 extends PacketListener {
 
-    private static void setBiome(LevelChunk chunk, LevelChunkSection[] sections, int x, int y, int z, org.bukkit.block.Biome biome) {
-        int idx = chunk.getSectionIndex(y);
-        Holder<Biome> holder = CraftBlock.biomeToBiomeBase(chunk.biomeRegistry, biome);
-        sections[idx].setBiome((x >> 2) & 3, (y >> 2) & 3, (z >> 2) & 3, holder);
-    }
-    private static void getBiome(LevelChunk chunk, LevelChunkSection[] sections, int x, int y, int z) {
-        int idx = chunk.getSectionIndex(y);
-        try {
-            var biome = CraftBlock.biomeBaseToBiome(chunk.biomeRegistry, sections[idx].getNoiseBiome((x >> 2) & 3, (y >> 2) & 3, (z >> 2) & 3)).name();
-            LOGGER.info("Biome at (" + x + ", " + y + ", " + z + ") is " + biome);
-        } catch (Throwable e) {
-            LOGGER.severe("Failed to get biome for chunk " + chunk.getPos() + " at (" + x + ", " + y + ", " + z + ")");
-            e.printStackTrace();
-        }
+    public PacketListener_v1_19_R2(Plugin plugin) {
+        super(plugin);
     }
 
     private static PalettedContainer<Holder<Biome>>[] copyBiomes(LevelChunk nmsChunk, LevelChunkSection[] sections, WeatherCache.WorldCache worldCache) {
@@ -210,7 +193,7 @@ public class PacketListener extends PacketAdapter {
 
         long endTime = System.nanoTime();
         if (Config.debug) {
-            LOGGER.info(("[Old] Chunk (%d, %d), " +
+            logger.info(("[Old] Chunk (%d, %d), " +
                         "preprocessing: %dns, copy: %dns, " +
                         "write buffer: %dns, total: %dns").formatted(x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime),
                         (endTime - copyTime), (endTime - startTime)));
@@ -342,17 +325,17 @@ public class PacketListener extends PacketAdapter {
         long endTime = System.nanoTime();
         // print debug information
         if (Config.debug) {
-            LOGGER.info("[New] Chunk (%d, %d), copy: %dns, write: %dns, total: %dns".formatted(x, z,
+            logger.info("[New] Chunk (%d, %d), copy: %dns, write: %dns, total: %dns".formatted(x, z,
                         copyTime - startTime, endTime - copyTime, endTime - startTime));
             //<editor-fold desc="Mismatch check">
             if (CHECK_MISMATCH) {
-                LOGGER.info("vs old (%dns), speedup: %.2f".formatted(oldTime, (double) oldTime / (endTime - startTime)));
+                logger.info("vs old (%dns), speedup: %.2f".formatted(oldTime, (double) oldTime / (endTime - startTime)));
                 int mismatch = Arrays.mismatch(expectedBuffer, newBuffer);
                 if (mismatch != -1) {
-                    LOGGER.warning("Mismatch at byte " + mismatch + " (expected " + expectedBuffer[mismatch] + ", got " + newBuffer[mismatch] + ")");
-                    LOGGER.warning("Blockstates sizes: " + Arrays.toString(statesSizes));
-                    LOGGER.warning("Biomes sizes: " + Arrays.toString(biomesSizes));
-                    LOGGER.warning("Fake biomes sizes: " + Arrays.toString(fakeBiomesSizes));
+                    logger.warning("Mismatch at byte " + mismatch + " (expected " + expectedBuffer[mismatch] + ", got " + newBuffer[mismatch] + ")");
+                    logger.warning("Blockstates sizes: " + Arrays.toString(statesSizes));
+                    logger.warning("Biomes sizes: " + Arrays.toString(biomesSizes));
+                    logger.warning("Fake biomes sizes: " + Arrays.toString(fakeBiomesSizes));
                 }
             }
             //</editor-fold>
@@ -365,7 +348,7 @@ public class PacketListener extends PacketAdapter {
             try {
                 updatePacketNew(event);
             } catch (Exception exception) {
-                LOGGER.warning("Fast packet handler exception, falling back: " + exception);
+                logger.warning("Fast packet handler exception, falling back: " + exception);
                 updatePacketOld(event);
             }
         } else {

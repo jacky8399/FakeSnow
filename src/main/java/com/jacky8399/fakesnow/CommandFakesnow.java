@@ -18,14 +18,16 @@ import java.util.stream.Collectors;
 public class CommandFakesnow implements TabExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 0)
-            return false;
+        if (args.length == 0) {
+            sender.sendMessage(ChatColor.GREEN + "You are running " + FakeSnow.get().getDescription().getFullName());
+            return true;
+        }
         switch (args[0]) {
             case "refreshregions" -> {
                 Map<World, WeatherType> worldWeather = WeatherCache.worldCache.entrySet().stream()
                         .filter(entry -> entry.getValue().globalWeather() != null)
                         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().globalWeather()));
-                WeatherCache.refreshCache();
+                WeatherCache.refreshCache(FakeSnow.get().cacheHandler);
                 // try to refresh all chunks
                 WeatherCache.worldCache.forEach((world, worldCache) -> {
                     WeatherType newWeather = worldCache.globalWeather();
