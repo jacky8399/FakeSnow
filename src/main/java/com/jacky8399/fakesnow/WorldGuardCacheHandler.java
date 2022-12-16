@@ -98,7 +98,7 @@ public class WorldGuardCacheHandler implements CacheHandler {
             // world coords to chunk coords (0-16), rounded to the closest multiple of 4
             int minX = Math.max(xOffset, minPoint.getX()) & 15 & ~3;
             int maxX = (Math.min(xOffset + 15, maxPoint.getX()) & 15) + 4 & ~3;
-            int minZ = Math.max(zOffset, minPoint.getX()) & 15 & ~3;
+            int minZ = Math.max(zOffset, minPoint.getZ()) & 15 & ~3;
             int maxZ = (Math.min(zOffset + 15, maxPoint.getZ()) & 15) + 4 & ~3;
             if (Config.debug)
                 LOGGER.info("Region: %s, x: %d-%d, y: %d-%d, z: %d-%d".formatted(region.getId(), minX, maxX, minY, maxY, minZ, maxZ));
@@ -124,7 +124,7 @@ public class WorldGuardCacheHandler implements CacheHandler {
 
         long queryTime = System.nanoTime();
         if (Config.debug) {
-            LOGGER.info("Caching chunk (%d, %d) (number of regions: %d):\n chunk query: %dns, blocks query: %dns"
+            LOGGER.info("Caching chunk (%d, %d) (number of regions: %d): chunk query: %dns, updating cache: %dns"
                     .formatted(chunk.getX(), chunk.getZ(), chunkRegionSet.size(),
                             chunkTime - startTime, queryTime - chunkTime));
         }
