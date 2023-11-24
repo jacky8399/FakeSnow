@@ -25,10 +25,11 @@ public class WorldGuardCacheHandler implements CacheHandler {
         try {
             CUSTOM_WEATHER_TYPE = new EnumFlag<>("custom-weather-type", WeatherType.class);
             WorldGuard.getInstance().getFlagRegistry().register(WorldGuardCacheHandler.CUSTOM_WEATHER_TYPE);
-        } catch (FlagConflictException e) {
+        } catch (Throwable e) {
             var flag = WorldGuard.getInstance().getFlagRegistry().get("custom-weather-type");
-            if (!(flag instanceof EnumFlag<?> enumFlag) || enumFlag.getEnumClass() != WeatherType.class)
-                throw new Error("Another plugin has already registered flag 'custom-weather-type'!", e);
+//            if (!(flag instanceof EnumFlag<?> enumFlag) || enumFlag.getEnumClass() != WeatherType.class)
+//                throw new Error("Another plugin has already registered incompatible flag 'custom-weather-type'!", e);
+            FakeSnow.get().logger.warning("Detected existing WorldGuard flag 'custom-weather-type'.");
             CUSTOM_WEATHER_TYPE = (EnumFlag<WeatherType>) flag;
         }
         FakeSnow.get().logger.info("Registered WorldGuard flag 'custom-weather-type'");
@@ -50,7 +51,10 @@ public class WorldGuardCacheHandler implements CacheHandler {
         var weatherCache = new WeatherCache.WorldCache(globalWeather, new HashMap<>());
 
         for (var chunk : loadedChunks) {
-            addChunkToCache(weatherCache, world, regionManager, chunk);
+            var chunkCache = addChunkToCache(weatherCache, world, regionManager, chunk);
+            if (chunkCache != null) {
+                weatherCache.chunkMap().put(new WeatherCache.ChunkPos(chunk.getX(), chunk.getZ()), chunkCache);
+            }
         }
         return weatherCache;
     }
@@ -123,13 +127,13 @@ public class WorldGuardCacheHandler implements CacheHandler {
         }
 
         long queryTime = System.nanoTime();
-        if (Config.debug) {
-            LOGGER.info("Caching chunk (%d, %d) (number of regions: %d): chunk query: %dns, updating cache: %dns"
-                    .formatted(chunk.getX(), chunk.getZ(), chunkRegionSet.size(),
-                            chunkTime - startTime, queryTime - chunkTime));
-        }
 
         if (changed) {
+            if (Config.debug) {
+                LOGGER.info("Caching chunk (%d, %d) (number of regions: %d): chunk query: %dns, updating cache: %dns"
+                        .formatted(chunk.getX(), chunk.getZ(), chunkRegionSet.size(),
+                                chunkTime - startTime, queryTime - chunkTime));
+            }
             // chunk contains custom weather type
             return new WeatherCache.ChunkCache(chunkCache);
         }

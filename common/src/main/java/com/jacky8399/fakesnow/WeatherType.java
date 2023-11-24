@@ -5,7 +5,8 @@ import org.bukkit.block.Biome;
 public enum WeatherType {
     RAIN(Biome.FOREST),
     SNOW(Biome.SNOWY_TAIGA),
-    NONE(Biome.THE_VOID);
+    NONE(Biome.THE_VOID),
+    DUST(Biome.BASALT_DELTAS);
     public final Biome biome;
 
     WeatherType(Biome biome) {

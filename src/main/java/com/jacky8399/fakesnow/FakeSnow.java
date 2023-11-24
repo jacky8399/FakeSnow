@@ -2,8 +2,8 @@ package com.jacky8399.fakesnow;
 
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.utility.MinecraftVersion;
-import com.jacky8399.fakesnow.v1_19_R1.PacketListener_v1_19_R1;
-import com.jacky8399.fakesnow.v1_19_R2.PacketListener_v1_19_R2;
+import com.jacky8399.fakesnow.v1_20_2_R1.PacketListener_v1_20_2_R1;
+import com.jacky8399.fakesnow.v1_20_R1.PacketListener_v1_20_R1;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -22,8 +22,9 @@ public final class FakeSnow extends JavaPlugin {
             try {
                 WorldGuardCacheHandler.tryAddFlag();
                 cacheHandler = new WorldGuardCacheHandler();
-            } catch (Error ignored) {
+            } catch (Error ex) {
                 // WorldGuard not installed
+                ex.printStackTrace();
             }
         }
     }
@@ -36,14 +37,17 @@ public final class FakeSnow extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (!MinecraftVersion.atOrAbove(new MinecraftVersion("1.19"))) {
-            throw new IllegalStateException("Only Minecraft 1.19 is supported");
-        } else if (Bukkit.getServer().getClass().getName().contains("v1_19_R1")) {
-            packetListener = new PacketListener_v1_19_R1(this); // 1.19 - 1.19.2
-            logger.info("Using 1.19-1.19.2 packet listener");
+        String bukkitVersion = Bukkit.getServer().getBukkitVersion();
+        if (!MinecraftVersion.getCurrentVersion().isAtLeast(new MinecraftVersion("1.20"))) {
+            throw new IllegalStateException("Only Minecraft 1.20 is supported");
+        } else if (bukkitVersion.startsWith("1.20.2")) {
+            packetListener = new PacketListener_v1_20_2_R1(this); // 1.20.2
+            logger.info("Using 1.20.2 packet listener");
+        } else if (bukkitVersion.startsWith("1.20")) {
+            packetListener = new PacketListener_v1_20_R1(this); // 1.20 - 1.20.1
+            logger.info("Using 1.20 packet listener");
         } else {
-            packetListener = new PacketListener_v1_19_R2(this); // 1.19.3
-            logger.info("Using 1.19.3 packet listener");
+            throw new IllegalStateException("Unsupported version " + bukkitVersion);
         }
 
         Bukkit.getPluginManager().registerEvents(new Events(), this);

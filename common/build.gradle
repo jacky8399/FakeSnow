@@ -5,7 +5,7 @@ plugins {
 group 'com.jacky8399.fakesnow'
 
 dependencies {
-    compileOnlyApi "org.spigotmc:spigot-api:1.19-R0.1-SNAPSHOT"
-    compileOnlyApi "com.comphenix.protocol:ProtocolLib:5.0.0-SNAPSHOT"
+    compileOnlyApi "org.spigotmc:spigot-api:1.20-R0.1-SNAPSHOT"
+    compileOnlyApi "com.comphenix.protocol:ProtocolLib:5.1.0"
     compileOnlyApi "org.jetbrains:annotations:23.0.0"
 }
