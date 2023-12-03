@@ -258,15 +258,7 @@ public class PacketListener_v1_20_2_R1 extends PacketListener {
             int statesSize = statesSizes[i] = section.getStates().getSerializedSize();
             int biomesSize = biomesSizes[i] = section.getBiomes().getSerializedSize();
             int fakeBiomesSize = fakeBiomesSizes[i] = fakeBiomes[i].getSerializedSize();
-            // getSerializedSize() may return a slightly larger size,
-            // which would be detrimental to the way we copy bytes.
-            // Try to fix this by basically guessing if the palette is of a troublesome size.
-            // See MC-131684, MC-242385
-            if (statesSize == 4) {
-                statesSizes[i] = 3;
-//                    biomesSizes[i] = 12;
-            }
-            // LevelChunkSection#getSerializedSize
+            // MC-131684, MC-242385: fixed in 1.20.2
             newBufferSize += 2 + statesSize + fakeBiomesSize;
         }
 
