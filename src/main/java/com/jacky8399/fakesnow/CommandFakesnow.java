@@ -10,6 +10,7 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +18,7 @@ import java.util.stream.Collectors;
 
 public class CommandFakesnow implements TabExecutor {
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
             sender.sendMessage(ChatColor.GREEN + "You are running " + FakeSnow.get().getDescription().getFullName());
             return true;
@@ -47,6 +48,15 @@ public class CommandFakesnow implements TabExecutor {
                         WeatherCache.worldCache.values().stream()
                                 .mapToInt(worldCache -> worldCache.chunkMap().size())
                                 .sum() + " chunks");
+                sender.sendMessage(
+                        ChatColor.GREEN + "If you don't see the snow:\n" +
+                                ChatColor.GREEN + "1. Check if the biome is " + WeatherType.SNOW.biome.getKey() + "\n" +
+                                ChatColor.GREEN + "2. Check if the region is raining\n" +
+                                ChatColor.YELLOW + "  (You can lock a region's weather with " +
+                                ChatColor.GOLD + "/region flag <id> weather-lock rain" +
+                                ChatColor.YELLOW + ")\n" +
+                                ChatColor.GREEN + "3. Try relogging"
+                );
                 return true;
             }
             case "realbiome" -> {
@@ -55,25 +65,23 @@ public class CommandFakesnow implements TabExecutor {
                     try {
                         World world = args.length == 5 ? Bukkit.getWorld(args[4]) : Bukkit.getWorlds().get(0);
                         if (world == null) {
-                            sender.sendMessage(ChatColor.RED + "No such world exist!");
-                            return false;
+                            sender.sendMessage(ChatColor.RED + "World " + args[4] + " doesn't exist");
+                            return true;
                         }
                         location = new Location(world, Integer.parseInt(args[1]), Integer.parseInt(args[2]), Integer.parseInt(args[3]));
                     } catch (NumberFormatException e) {
-                        sender.sendMessage(ChatColor.RED + "Malformed coordinates!");
-                        return false;
+                        sender.sendMessage(ChatColor.RED + "Invalid coordinates " + String.join(" ", Arrays.copyOfRange(args, 1, args.length)));
+                        return true;
                     }
-                } else if (args.length != 1) { // incomplete coordinates
-                    sender.sendMessage(ChatColor.RED + "Invalid coordinates!");
-                    return false;
                 } else {
                     if (!(sender instanceof Player)) {
                         sender.sendMessage(ChatColor.RED + "Usage: /fakesnow realbiome <x> <y> <z> [world]");
-                        return false;
+                        return true;
                     }
                     location = ((Player) sender).getLocation();
                 }
-                sender.sendMessage(ChatColor.GREEN + "The current biome at " + location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ() + ": " +
+                sender.sendMessage(ChatColor.GREEN + "The actual biome at " +
+                        location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ() + ": " +
                         location.getBlock().getBiome().getKey());
                 return true;
             }
@@ -83,8 +91,8 @@ public class CommandFakesnow implements TabExecutor {
                 return true;
             }
         }
-        sender.sendMessage(ChatColor.RED + "/fakesnow <refreshregions/realbiome/reload>");
-        return false;
+        sender.sendMessage(ChatColor.RED + "Usage: /fakesnow <refreshregions/realbiome/reload>");
+        return true;
     }
 
     @Override
