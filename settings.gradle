@@ -11,4 +11,5 @@ rootProject.name = 'FakeSnow'
 include 'common'
 include 'v1_20_R1'
 include 'v1_20_2_R1'
+include 'v1_20_3_R1'
 
