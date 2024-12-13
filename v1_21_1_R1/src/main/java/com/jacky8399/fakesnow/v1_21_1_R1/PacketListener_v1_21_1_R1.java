@@ -1,4 +1,4 @@
-package com.jacky8399.fakesnow.v1_20_R1;
+package com.jacky8399.fakesnow.v1_21_1_R1;
 
 import com.comphenix.protocol.events.PacketEvent;
 import com.destroystokyo.paper.antixray.ChunkPacketBlockController;
@@ -13,16 +13,16 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.v1_20_R1.CraftChunk;
-import org.bukkit.craftbukkit.v1_20_R1.block.CraftBlock;
+import org.bukkit.craftbukkit.CraftChunk;
+import org.bukkit.craftbukkit.block.CraftBiome;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -31,24 +31,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.EnumMap;
 
-public class PacketListener_v1_20_R1 extends PacketListener {
+public class PacketListener_v1_21_1_R1 extends PacketListener {
 
-    public PacketListener_v1_20_R1(Plugin plugin) {
+    public PacketListener_v1_21_1_R1(Plugin plugin) {
         super(plugin);
-    }
-
-    private static void setBiome(LevelChunk chunk, LevelChunkSection[] sections, int x, int y, int z, org.bukkit.block.Biome biome) {
-        int idx = chunk.getSectionIndex(y);
-        Holder<Biome> holder = CraftBlock.biomeToBiomeBase(chunk.biomeRegistry, biome);
-        sections[idx].setBiome((x >> 2) & 3, (y >> 2) & 3, (z >> 2) & 3, holder);
-    }
-    private static void getBiome(LevelChunk chunk, LevelChunkSection[] sections, int x, int y, int z) {
-        int idx = chunk.getSectionIndex(y);
-        try {
-            var biome = CraftBlock.biomeBaseToBiome(chunk.biomeRegistry, sections[idx].getNoiseBiome((x >> 2) & 3, (y >> 2) & 3, (z >> 2) & 3)).name();
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
     }
 
     private static PalettedContainer<Holder<Biome>>[] copyBiomes(LevelChunk nmsChunk, LevelChunkSection[] sections, WeatherCache.WorldCache worldCache) {
@@ -57,10 +43,9 @@ public class PacketListener_v1_20_R1 extends PacketListener {
 
         @SuppressWarnings("unchecked")
         PalettedContainer<Holder<Biome>>[] arr = new PalettedContainer[sections.length];
-        var biomeRegistry = nmsChunk.biomeRegistry;
         var weatherToNmsBiomeMap = new EnumMap<WeatherType, Holder<Biome>>(WeatherType.class);
         for (var weatherType : WeatherType.values()) {
-            weatherToNmsBiomeMap.put(weatherType, CraftBlock.biomeToBiomeBase(biomeRegistry, weatherType.biome));
+            weatherToNmsBiomeMap.put(weatherType, CraftBiome.bukkitToMinecraftHolder(weatherType.biome));
         }
 
         WeatherCache.ChunkCache chunkCache = worldCache.getChunkCache(chunkX, chunkZ);
@@ -210,9 +195,9 @@ public class PacketListener_v1_20_R1 extends PacketListener {
         long endTime = System.nanoTime();
         if (Config.debug) {
             logger.info(("[Old] Chunk (%d, %d), " +
-                        "preprocessing: %dns, copy: %dns, " +
-                        "write buffer: %dns, total: %dns").formatted(x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime),
-                        (endTime - copyTime), (endTime - startTime)));
+                    "preprocessing: %dns, copy: %dns, " +
+                    "write buffer: %dns, total: %dns").formatted(x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime),
+                    (endTime - copyTime), (endTime - startTime)));
         }
     }
 
@@ -272,15 +257,7 @@ public class PacketListener_v1_20_R1 extends PacketListener {
             int statesSize = statesSizes[i] = section.getStates().getSerializedSize();
             int biomesSize = biomesSizes[i] = section.getBiomes().getSerializedSize();
             int fakeBiomesSize = fakeBiomesSizes[i] = fakeBiomes[i].getSerializedSize();
-            // getSerializedSize() may return a slightly larger size,
-            // which would be detrimental to the way we copy bytes.
-            // Try to fix this by basically guessing if the palette is of a troublesome size.
-            // See MC-131684, MC-242385
-            if (statesSize == 4) {
-                statesSizes[i] = 3;
-//                    biomesSizes[i] = 12;
-            }
-            // LevelChunkSection#getSerializedSize
+            // MC-131684, MC-242385: fixed in 1.20.2
             newBufferSize += 2 + statesSize + fakeBiomesSize;
         }
 
@@ -342,7 +319,7 @@ public class PacketListener_v1_20_R1 extends PacketListener {
         // print debug information
         if (Config.debug) {
             logger.info("[New] Chunk (%d, %d), copy: %dns, write: %dns, total: %dns".formatted(x, z,
-                        copyTime - startTime, endTime - copyTime, endTime - startTime));
+                    copyTime - startTime, endTime - copyTime, endTime - startTime));
             //<editor-fold desc="Mismatch check">
             if (CHECK_MISMATCH) {
                 logger.info("vs old (%dns), speedup: %.2f".formatted(oldTime, (double) oldTime / (endTime - startTime)));

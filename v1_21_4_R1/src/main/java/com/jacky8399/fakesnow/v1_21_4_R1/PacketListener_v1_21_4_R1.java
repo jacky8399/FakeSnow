@@ -1,4 +1,4 @@
-package com.jacky8399.fakesnow.v1_20_3_R1;
+package com.jacky8399.fakesnow.v1_21_4_R1;
 
 import com.comphenix.protocol.events.PacketEvent;
 import com.destroystokyo.paper.antixray.ChunkPacketBlockController;
@@ -13,17 +13,16 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.v1_20_R3.CraftChunk;
-import org.bukkit.craftbukkit.v1_20_R3.block.CraftBiome;
-import org.bukkit.craftbukkit.v1_20_R3.block.CraftBlock;
+import org.bukkit.craftbukkit.CraftChunk;
+import org.bukkit.craftbukkit.block.CraftBiome;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -32,9 +31,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.EnumMap;
 
-public class PacketListener_v1_20_3_R1 extends PacketListener {
+public class PacketListener_v1_21_4_R1 extends PacketListener {
 
-    public PacketListener_v1_20_3_R1(Plugin plugin) {
+    public PacketListener_v1_21_4_R1(Plugin plugin) {
         super(plugin);
     }
 

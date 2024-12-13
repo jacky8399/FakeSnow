@@ -1,4 +1,4 @@
-package com.jacky8399.fakesnow.v1_20_2_R1;
+package com.jacky8399.fakesnow.v1_21_3_R1;
 
 import com.comphenix.protocol.events.PacketEvent;
 import com.destroystokyo.paper.antixray.ChunkPacketBlockController;
@@ -13,17 +13,16 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.v1_20_R2.CraftChunk;
-import org.bukkit.craftbukkit.v1_20_R2.block.CraftBiome;
-import org.bukkit.craftbukkit.v1_20_R2.block.CraftBlock;
+import org.bukkit.craftbukkit.CraftChunk;
+import org.bukkit.craftbukkit.block.CraftBiome;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -32,9 +31,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.EnumMap;
 
-public class PacketListener_v1_20_2_R1 extends PacketListener {
+public class PacketListener_v1_21_3_R1 extends PacketListener {
 
-    public PacketListener_v1_20_2_R1(Plugin plugin) {
+    public PacketListener_v1_21_3_R1(Plugin plugin) {
         super(plugin);
     }
 
@@ -196,9 +195,9 @@ public class PacketListener_v1_20_2_R1 extends PacketListener {
         long endTime = System.nanoTime();
         if (Config.debug) {
             logger.info(("[Old] Chunk (%d, %d), " +
-                        "preprocessing: %dns, copy: %dns, " +
-                        "write buffer: %dns, total: %dns").formatted(x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime),
-                        (endTime - copyTime), (endTime - startTime)));
+                    "preprocessing: %dns, copy: %dns, " +
+                    "write buffer: %dns, total: %dns").formatted(x, z, (preprocessingTime - startTime), (copyTime - preprocessingTime),
+                    (endTime - copyTime), (endTime - startTime)));
         }
     }
 
@@ -320,7 +319,7 @@ public class PacketListener_v1_20_2_R1 extends PacketListener {
         // print debug information
         if (Config.debug) {
             logger.info("[New] Chunk (%d, %d), copy: %dns, write: %dns, total: %dns".formatted(x, z,
-                        copyTime - startTime, endTime - copyTime, endTime - startTime));
+                    copyTime - startTime, endTime - copyTime, endTime - startTime));
             //<editor-fold desc="Mismatch check">
             if (CHECK_MISMATCH) {
                 logger.info("vs old (%dns), speedup: %.2f".formatted(oldTime, (double) oldTime / (endTime - startTime)));

@@ -1,12 +1,17 @@
 package com.jacky8399.fakesnow;
 
 import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.utility.MinecraftVersion;
-import com.jacky8399.fakesnow.v1_20_2_R1.PacketListener_v1_20_2_R1;
-import com.jacky8399.fakesnow.v1_20_3_R1.PacketListener_v1_20_3_R1;
-import com.jacky8399.fakesnow.v1_20_R1.PacketListener_v1_20_R1;
+import com.jacky8399.fakesnow.v1_21_1_R1.PacketListener_v1_21_1_R1;
+import com.jacky8399.fakesnow.v1_21_3_R1.PacketListener_v1_21_3_R1;
+import com.jacky8399.fakesnow.v1_21_4_R1.PacketListener_v1_21_4_R1;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -39,20 +44,18 @@ public final class FakeSnow extends JavaPlugin {
     @Override
     public void onEnable() {
         String bukkitVersion = Bukkit.getServer().getBukkitVersion();
-        if (!MinecraftVersion.getCurrentVersion().isAtLeast(new MinecraftVersion("1.20"))) {
-            throw new IllegalStateException("Only Minecraft 1.20 is supported");
-        } else if (bukkitVersion.startsWith("1.20.3") || bukkitVersion.startsWith("1.20.4")) {
-            packetListener = new PacketListener_v1_20_3_R1(this);
-            logger.info("Using 1.20.3 packet listener");
-        } else if (bukkitVersion.startsWith("1.20.2")) {
-            packetListener = new PacketListener_v1_20_2_R1(this); // 1.20.2
-            logger.info("Using 1.20.2 packet listener");
-        } else if (bukkitVersion.startsWith("1.20")) {
-            packetListener = new PacketListener_v1_20_R1(this); // 1.20 - 1.20.1
-            logger.info("Using 1.20-1.20.1 packet listener");
+        if (!MinecraftVersion.getCurrentVersion().isAtLeast(new MinecraftVersion("1.21"))) {
+            throw new IllegalStateException("Only Minecraft 1.21 is supported");
+        } else if (bukkitVersion.startsWith("1.21.4")) {
+            packetListener = new PacketListener_v1_21_4_R1(this); // 1.21.4
+        } else if (bukkitVersion.startsWith("1.21.2") || bukkitVersion.startsWith("1.21.3")) {
+            packetListener = new PacketListener_v1_21_3_R1(this); // 1.21.2 - 1.21.3
+        } else if (bukkitVersion.startsWith("1.21")) {
+            packetListener = new PacketListener_v1_21_1_R1(this); // 1.21 - 1.21.1
         } else {
             throw new IllegalStateException("Unsupported version " + bukkitVersion);
         }
+        logger.info("Using " + packetListener.getClass().getSimpleName());
 
         Bukkit.getPluginManager().registerEvents(new Events(), this);
         getCommand("fakesnow").setExecutor(new CommandFakesnow());
