@@ -1,4 +1,4 @@
-package com.jacky8399.fakesnow.v1_21_4_R1;
+package com.jacky8399.fakesnow.v1_21_5_R1;
 
 import com.comphenix.protocol.events.PacketEvent;
 import com.jacky8399.fakesnow.Config;
@@ -31,9 +31,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.EnumMap;
 
-public class PacketListener_v1_21_4_R1 extends PacketListener {
+public class PacketListener_v1_21_5_R1 extends PacketListener {
 
-    public PacketListener_v1_21_4_R1(Plugin plugin) {
+    public PacketListener_v1_21_5_R1(Plugin plugin) {
         super(plugin);
     }
 

@@ -1,0 +1,16 @@
+plugins {
+    id 'java-library'
+    id 'io.papermc.paperweight.userdev'
+}
+
+group 'com.jacky8399.fakesnow.v1_21_5_R1'
+
+dependencies {
+    paperweight.paperDevBundle("1.21.5-R0.1-SNAPSHOT")
+    implementation(project(":common"))
+}
+
+// https://github.com/PaperMC/paperweight/issues/143
+tasks.named("assemble") {
+    dependsOn tasks.named("reobfJar")
+}

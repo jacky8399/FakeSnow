@@ -3,7 +3,7 @@ import java.nio.charset.StandardCharsets
 plugins {
     id("com.gradleup.shadow") version "9.0.0-beta4"
     id 'java-library'
-    id 'io.papermc.paperweight.userdev' version "2.0.0-beta.11" apply false
+    id 'io.papermc.paperweight.userdev' version "2.0.0-beta.18" apply false
 }
 
 group = 'com.jacky8399'
@@ -51,10 +51,11 @@ dependencies {
     implementation(project(path: ":v1_21_1_R1", configuration: 'reobf'))
     implementation(project(path: ":v1_21_3_R1", configuration: 'reobf'))
     implementation(project(path: ":v1_21_4_R1", configuration: 'reobf'))
+    implementation(project(path: ":v1_21_5_R1", configuration: 'reobf'))
 
     compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.6")
     implementation("org.bstats:bstats-bukkit:3.0.0")
-    compileOnlyApi "com.comphenix.protocol:ProtocolLib:5.1.0"
+    compileOnlyApi "net.dmulloy2:ProtocolLib:5.4.0"
 }
 
 // replace plugin.yml version with Gradle build version
