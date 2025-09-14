@@ -1,21 +1,23 @@
-package com.jacky8399.fakesnow.v1_21_3_R1;
+package com.jacky8399.fakesnow.v1_21_8_R1;
 
 import com.comphenix.protocol.events.PacketEvent;
-import com.destroystokyo.paper.antixray.ChunkPacketBlockController;
 import com.jacky8399.fakesnow.Config;
 import com.jacky8399.fakesnow.PacketListener;
 import com.jacky8399.fakesnow.WeatherCache;
 import com.jacky8399.fakesnow.WeatherType;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.papermc.paper.antixray.ChunkPacketBlockController;
 import net.minecraft.core.Holder;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.VarInt;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.world.level.chunk.PalettedContainerRO;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -25,15 +27,24 @@ import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.craftbukkit.block.CraftBiome;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.HexFormat;
 
-public class PacketListener_v1_21_3_R1 extends PacketListener {
+public class PacketListener_v1_21_8_R1 extends PacketListener {
 
-    public PacketListener_v1_21_3_R1(Plugin plugin) {
+    /** Whether to perform byte array mismatch checks */
+    private static final boolean CHECK_MISMATCH = false;
+    /** Whether to always print original and modified palettes even without mismatches */
+    private static final boolean INSPECT_PALETTE = false;
+
+    private static final Logger logger = LoggerFactory.getLogger("PacketListener_v1_21_8_R1");
+
+    public PacketListener_v1_21_8_R1(Plugin plugin) {
         super(plugin);
     }
 
@@ -201,7 +212,12 @@ public class PacketListener_v1_21_3_R1 extends PacketListener {
         }
     }
 
-    private static final boolean CHECK_MISMATCH = false;
+    // MC-131684, MC-242385: fixed in 1.20.2
+    // MC-296121: fixed in 1.21.6
+    private static int getRealSerializedSize(PalettedContainerRO<?> pc) {
+        return pc.getSerializedSize();
+    }
+
     void updatePacketNew(PacketEvent event) {
         Player player = event.getPlayer();
         World world = player.getWorld();
@@ -254,11 +270,12 @@ public class PacketListener_v1_21_3_R1 extends PacketListener {
         int[] fakeBiomesSizes = new int[numOfSections];
         for (int i = 0; i < numOfSections; i++) {
             var section = originalSections[i];
-            int statesSize = statesSizes[i] = section.getStates().getSerializedSize();
-            int biomesSize = biomesSizes[i] = section.getBiomes().getSerializedSize();
-            int fakeBiomesSize = fakeBiomesSizes[i] = fakeBiomes[i].getSerializedSize();
-            // MC-131684, MC-242385: fixed in 1.20.2
+            int statesSize = getRealSerializedSize(section.getStates());
+            int fakeBiomesSize = getRealSerializedSize(fakeBiomes[i]);
             newBufferSize += 2 + statesSize + fakeBiomesSize;
+            statesSizes[i] = statesSize;
+            biomesSizes[i] = getRealSerializedSize(section.getBiomes());
+            fakeBiomesSizes[i] = fakeBiomesSize;
         }
 
         byte[] newBuffer = new byte[newBufferSize];
@@ -281,8 +298,12 @@ public class PacketListener_v1_21_3_R1 extends PacketListener {
                 int expectedSize = size + fakeBiomesSizes[i];
                 int mismatch = Arrays.mismatch(expectedBuffer, writerIndex, writerIndex + expectedSize,
                         newBuffer, writerIndex, writerIndex + expectedSize);
+                StringBuilder builder = null;
+                if (INSPECT_PALETTE || mismatch != -1) {
+                    builder = new StringBuilder();
+                    builder.append(ChatColor.AQUA).append("Chunk section at (").append(x).append(",").append(z).append("), i = ").append(i).append(ChatColor.RESET).append('\n');
+                }
                 if (mismatch != -1) {
-                    var builder = new StringBuilder();
                     builder.append("Mismatch at ").append(mismatch)
                             .append(" for statesSize=").append(statesSizes[i])
                             .append(", biomesSize=").append(biomesSizes[i])
@@ -290,11 +311,13 @@ public class PacketListener_v1_21_3_R1 extends PacketListener {
                             .append("\nwhile copying buffer[").append(readIndex).append(":").append(readIndex + size)
                             .append("] to newBuffer[").append(writerIndex).append(":").append(writerIndex + size).append("]")
                             .append('\n');
-                    builder.append("Original: ");
-                    printBytes(builder, buffer, readIndex, readIndex + size + biomesSizes[i], readIndex + mismatch, statesSizes[i]);
-                    builder.append('\n');
                     builder.append("Expected: ");
                     printBytes(builder, expectedBuffer, writerIndex, writerIndex + expectedSize, writerIndex + mismatch, statesSizes[i]);
+                    builder.append('\n');
+                }
+                if (INSPECT_PALETTE || mismatch != -1) {
+                    builder.append("Original: ");
+                    printBytes(builder, buffer, readIndex, readIndex + size + biomesSizes[i], readIndex + mismatch, statesSizes[i]);
                     builder.append('\n');
                     builder.append("Got:      ");
                     printBytes(builder, newBuffer, writerIndex, writerIndex + expectedSize, writerIndex + mismatch, statesSizes[i]);
@@ -323,12 +346,12 @@ public class PacketListener_v1_21_3_R1 extends PacketListener {
             //<editor-fold desc="Mismatch check">
             if (CHECK_MISMATCH) {
                 logger.info("vs old (%dns), speedup: %.2f".formatted(oldTime, (double) oldTime / (endTime - startTime)));
-                int mismatch = Arrays.mismatch(expectedBuffer, newBuffer);
+                int mismatch = Arrays.mismatch(expectedBuffer, 0, newBufferSize, newBuffer, 0, newBufferSize);
                 if (mismatch != -1) {
-                    logger.warning("Mismatch at byte " + mismatch + " (expected " + expectedBuffer[mismatch] + ", got " + newBuffer[mismatch] + ")");
-                    logger.warning("Blockstates sizes: " + Arrays.toString(statesSizes));
-                    logger.warning("Biomes sizes: " + Arrays.toString(biomesSizes));
-                    logger.warning("Fake biomes sizes: " + Arrays.toString(fakeBiomesSizes));
+                    logger.warn("Mismatch at byte " + mismatch + " (expected " + expectedBuffer[mismatch] + ", got " + newBuffer[mismatch] + ")");
+                    logger.warn("Blockstates sizes: " + Arrays.toString(statesSizes));
+                    logger.warn("Biomes sizes: " + Arrays.toString(biomesSizes));
+                    logger.warn("Fake biomes sizes: " + Arrays.toString(fakeBiomesSizes));
                 }
             }
             //</editor-fold>
@@ -341,7 +364,7 @@ public class PacketListener_v1_21_3_R1 extends PacketListener {
             try {
                 updatePacketNew(event);
             } catch (Exception exception) {
-                logger.warning("Fast packet handler exception, falling back: " + exception);
+                logger.warn("Fast packet handler exception, falling back", exception);
                 updatePacketOld(event);
             }
         } else {
@@ -349,28 +372,78 @@ public class PacketListener_v1_21_3_R1 extends PacketListener {
         }
     }
 
-    private static final byte[] HEX_ARRAY = "0123456789ABCDEF".getBytes(StandardCharsets.US_ASCII);
+    private static final HexFormat HEX = HexFormat.of().withUpperCase();
+    private static void printBytesWithMismatch(StringBuilder a, byte[] arr, int from, int to, int mismatch) {
+        if (mismatch >= from && mismatch < to) {
+            HEX.formatHex(a, arr, from, mismatch);
+            a.append(ChatColor.UNDERLINE);
+            HEX.formatHex(a, arr, mismatch, to);
+        } else {
+            HEX.formatHex(a, arr, from, to);
+        }
+        a.append(ChatColor.RESET);
+    }
+
+    private static final int STATES_ENTRIES = 4096, BIOMES_ENTRIES = 64;
     private static void printBytes(StringBuilder builder, byte[] arr, int from, int to, int mismatch, int statesSize) {
         builder.ensureCapacity(builder.length() + (to - from) * 2 + 14);
-        ChatColor lastColor = ChatColor.GREEN;
-        for (int j = from; j < to; j++) {
-            int v = arr[j] & 0xFF;
-            int relative = j - from;
-            if (relative == 0) {
-                builder.append(lastColor);
-            } else if (relative == 2) {
-                builder.append(lastColor = ChatColor.YELLOW);
-            } else if (relative == statesSize + 2) {
-                builder.append(lastColor = ChatColor.LIGHT_PURPLE);
-            }
 
-            if (mismatch == j) {
-                builder.append(ChatColor.UNDERLINE);
-            }
-            builder.append((char) HEX_ARRAY[v >>> 4]);
-            builder.append((char) HEX_ARRAY[v & 0x0F]);
+        ByteBuf byteBuf = Unpooled.wrappedBuffer(arr).readerIndex(from);
+        // non-empty count
+        builder.append("\nNON_EMPTY: ").append(ChatColor.GREEN);
+        printBytesWithMismatch(builder, arr, from, from + 2, mismatch);
+        builder.append(ChatColor.GRAY + " = ").append(byteBuf.readShort()).append('\n');
+        // states palette
+        builder.append("STATES   : ").append(ChatColor.YELLOW);
+        if (mismatch >= from + 2 && mismatch < from + 2 + statesSize) {
+            printBytesWithMismatch(builder, arr, from + 2, from + 2 + statesSize, mismatch);
+        } else { // omit if no mismatch
+            HEX.toHexDigits(builder, arr[from + 2]);
+            builder.append("...");
+            HEX.toHexDigits(builder, arr[from + 2 + statesSize - 1]);
         }
-        builder.append(ChatColor.RESET);
+        builder.append(ChatColor.RESET).append('\n');
+        // biomes palette
+        builder.append("BIOMES   : ").append(ChatColor.LIGHT_PURPLE);
+        printBytesWithMismatch(builder, arr, from + 2 + statesSize, to, mismatch);
+        builder.append('\n').append(ChatColor.GRAY).append(" = ");
+
+        byteBuf.skipBytes(statesSize);
+        try {
+            int bitsPerEntry = byteBuf.readUnsignedByte();
+            builder.append("bitsPerEntry: ").append(bitsPerEntry).append("\npalette: ");
+            switch (bitsPerEntry) {
+                case 0 -> builder.append("Single-Valued (").append(VarInt.read(byteBuf)).append(")");
+                case 1,2,3 -> {
+                    int entries = VarInt.read(byteBuf);
+                    builder.append("Indirect (").append(entries).append(") {");
+                    for (int i = 0; i < entries; i++) {
+                        int entry = VarInt.read(byteBuf);
+                        builder.append('\n').append(HEX.toHexDigits(i)).append(" -> ").append(HEX.toHexDigits(entry));
+                    }
+                    builder.append("\n}");
+                }
+                case 6 -> builder.append("Direct");
+                default -> builder.append("UNKNOWN");
+            }
+            if (bitsPerEntry != 0) {
+                builder.append("\nValues: ");
+                int longs = BIOMES_ENTRIES * bitsPerEntry / Long.SIZE;
+                long mask = (1L << bitsPerEntry) - 1;
+                int hexDigits = bitsPerEntry / 4 + 1;
+                for (int i = 0; i < longs; i++) {
+                    long l = byteBuf.readLong();
+                    for (int j = 0; j < Long.SIZE; j += bitsPerEntry) {
+                        long value = (l & mask);
+                        builder.append(HEX.toHexDigits(value, hexDigits)).append(' ');
+                        l >>= bitsPerEntry;
+                    }
+                }
+            }
+            builder.append(ChatColor.RESET);
+        } catch (Exception ex) {
+            logger.info("Failed to parse biome palette", ex);
+        }
     }
 
 }
