@@ -1,4 +1,4 @@
-package com.jacky8399.fakesnow.v1_21_8_R1;
+package com.jacky8399.fakesnow.v1_21_10_R1;
 
 import com.comphenix.protocol.events.PacketEvent;
 import com.jacky8399.fakesnow.Config;
@@ -35,16 +35,16 @@ import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HexFormat;
 
-public class PacketListener_v1_21_8_R1 extends PacketListener {
+public class PacketListener_v1_21_10_R1 extends PacketListener {
 
     /** Whether to perform byte array mismatch checks */
-    private static final boolean CHECK_MISMATCH = false;
+    private static final boolean CHECK_MISMATCH = true;
     /** Whether to always print original and modified palettes even without mismatches */
     private static final boolean INSPECT_PALETTE = false;
 
-    private static final Logger logger = LoggerFactory.getLogger("PacketListener_v1_21_8_R1");
+    private static final Logger logger = LoggerFactory.getLogger(PacketListener_v1_21_10_R1.class.getSimpleName());
 
-    public PacketListener_v1_21_8_R1(Plugin plugin) {
+    public PacketListener_v1_21_10_R1(Plugin plugin) {
         super(plugin);
     }
 
@@ -63,32 +63,33 @@ public class PacketListener_v1_21_8_R1 extends PacketListener {
         WeatherType globalWeather = worldCache.globalWeather();
         for (int idx = 0; idx < sections.length; idx++) {
             var section = sections[idx];
+            WeatherType[] sectionCache = chunkCache != null ? chunkCache.getSectionCache(idx) : null;
 
             PalettedContainer<Holder<Biome>> container;
-            if (worldCache.isSectionUniform(chunkX, chunkZ, idx)) {
+            if (worldCache.isSectionUniform(chunkCache, idx)) {
                 // globalWeather can't be null
-                var uniformBiomeHolder = weatherToNmsBiomeMap.get(worldCache.globalWeather());
+                var uniformBiomeHolder = weatherToNmsBiomeMap.get(globalWeather);
                 // Single-valued palette
                 // See https://wiki.vg/Chunk_Format#Single_valued
-                container = new PalettedContainer<>(nmsChunk.biomeRegistry.asHolderIdMap(), uniformBiomeHolder, PalettedContainer.Strategy.SECTION_BIOMES);
+                container = new PalettedContainer<>(uniformBiomeHolder, nmsChunk.level.palettedContainerFactory().biomeStrategy(), null);
             } else {
                 var originalBiomes = (PalettedContainer<Holder<Biome>>) section.getBiomes();
-                // apparently PalettedContainer#copy() causes weird side effects
-                // just copy the biomes block by block
-                container = originalBiomes.recreate();
+                container = originalBiomes.copy();
+                if (sectionCache == null)
+                    continue; // no modification for this section
                 for (int j = 0; j < 4; j++) {
                     int y = j << 2;
                     for (int i = 0; i < 4; i++) {
                         int x = i << 2;
                         for (int k = 0; k < 4; k++) {
                             int z = k << 2;
-                            var blockWeather = chunkCache.getBlockWeather(idx, x, y, z);
+                            var blockWeather = sectionCache[WeatherCache.ChunkCache.getBlockIndex(x, y, z)];
                             if (blockWeather != null) {
                                 container.set(i, j, k, weatherToNmsBiomeMap.get(blockWeather));
                             } else if (globalWeather != null) {
                                 container.set(i, j, k, weatherToNmsBiomeMap.get(globalWeather));
                             } else {
-                                container.set(i, j, k, originalBiomes.get(i, j, k));
+//                                container.set(i, j, k, originalBiomes.get(i, j, k));
                             }
                         }
                     }
@@ -112,33 +113,23 @@ public class PacketListener_v1_21_8_R1 extends PacketListener {
     }
 
     private static final Field BUFFER_FIELD;
-    private static final boolean PAPER_XRAY; // whether paper xray information is required
     static {
-        Field bufferField = null;
-        boolean paperXray;
         try {
+            Field bufferField = null;
             for (Field field : ClientboundLevelChunkPacketData.class.getDeclaredFields()) {
                 if (field.getType() == byte[].class) {
                     bufferField = field;
                     break;
                 }
             }
-
             if (bufferField == null) {
                 throw new Error("Couldn't find byte[] buffer in ClientboundLevelChunkPacketData");
             }
             bufferField.setAccessible(true);
+            BUFFER_FIELD = bufferField;
         } catch (Exception ex) {
             throw new Error("Couldn't find byte[] buffer in ClientboundLevelChunkPacketData", ex);
         }
-        BUFFER_FIELD = bufferField;
-        try {
-            Class.forName("com.destroystokyo.paper.antixray.ChunkPacketInfo");
-            paperXray = true;
-        } catch (ClassNotFoundException e) {
-            paperXray = false;
-        }
-        PAPER_XRAY = paperXray;
     }
 
     void updatePacketOld(PacketEvent event) {
@@ -169,39 +160,31 @@ public class PacketListener_v1_21_8_R1 extends PacketListener {
         long copyTime = System.nanoTime();
 
         // paper xray
-        ChunkPacketBlockController chunkPacketBlockController = null;
-        if (PAPER_XRAY) {
-            chunkPacketBlockController = nmsChunk.getLevel().chunkPacketBlockController;
-        }
+        ChunkPacketBlockController chunkPacketBlockController = nmsChunk.getLevel().chunkPacketBlockController;
         // write back to the buffer
-        try {
-            // ClientboundLevelChunkPacketData#calculateChunkSize
-            int newBufferSize = 0;
-            for (LevelChunkSection section : fakeSections) {
-                newBufferSize += section.getSerializedSize();
-            }
-            byte[] newBuffer = new byte[newBufferSize];
-            // ClientboundLevelChunkPacketData#getWriteBuffer
-            ByteBuf byteBuf = Unpooled.wrappedBuffer(newBuffer);
-            byteBuf.writerIndex(0);
-            FriendlyByteBuf friendlyByteBuf = new FriendlyByteBuf(byteBuf);
-            int idx = 0;
-            for (LevelChunkSection section : fakeSections) {
-                if (PAPER_XRAY) {
-                    var info = chunkPacketBlockController.getChunkPacketInfo(packet, nmsChunk);
-                    if (info != null)
-                        info.setBuffer(newBuffer);
-                    section.write(friendlyByteBuf, info, idx++);
-                } else {
-                    // noinspection deprecation
-                    section.write(friendlyByteBuf);
-                }
-            }
-            BUFFER_FIELD.set(data, newBuffer);
-            packet.setReady(true);
-        } catch (IllegalAccessException e) {
-            throw new Error("Failed to update packet for chunk " + x + ", " + z, e);
+        // ClientboundLevelChunkPacketData#calculateChunkSize
+        int newBufferSize = 0;
+        for (LevelChunkSection section : fakeSections) {
+            newBufferSize += section.getSerializedSize();
         }
+        byte[] newBuffer = new byte[newBufferSize];
+        // ClientboundLevelChunkPacketData#getWriteBuffer
+        ByteBuf byteBuf = Unpooled.wrappedBuffer(newBuffer);
+        byteBuf.writerIndex(0);
+        FriendlyByteBuf friendlyByteBuf = new FriendlyByteBuf(byteBuf);
+        int idx = 0;
+        for (LevelChunkSection section : fakeSections) {
+            var info = chunkPacketBlockController.getChunkPacketInfo(packet, nmsChunk);
+            if (info != null)
+                info.setBuffer(newBuffer);
+            section.write(friendlyByteBuf, info, idx++);
+        }
+        try {
+            BUFFER_FIELD.set(data, newBuffer);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+        packet.setReady(true);
 
         long endTime = System.nanoTime();
         if (Config.debug) {
@@ -239,8 +222,8 @@ public class PacketListener_v1_21_8_R1 extends PacketListener {
         byte[] buffer;
         try {
             buffer = (byte[]) BUFFER_FIELD.get(data);
-        } catch (ReflectiveOperationException ex) {
-            throw new Error("Error while reading buffer from chunk " + x + "," + z, ex);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
         }
 
         byte[] expectedBuffer = null;
@@ -251,8 +234,8 @@ public class PacketListener_v1_21_8_R1 extends PacketListener {
             oldTime = System.nanoTime() - oldStartTime;
             try {
                 expectedBuffer = (byte[]) BUFFER_FIELD.get(data);
-            } catch (ReflectiveOperationException ex) {
-                throw new Error("Error while reading buffer from chunk " + x + "," + z, ex);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
             }
         }
         long startTime = System.nanoTime();
@@ -333,9 +316,9 @@ public class PacketListener_v1_21_8_R1 extends PacketListener {
 
         // set buffer
         try {
-            BUFFER_FIELD.set(data, newBuffer);
-        } catch (ReflectiveOperationException ex) {
-            throw new Error("Failed to set buffer for chunk " + x + "," + z, ex);
+            BUFFER_FIELD.set(data, (byte[]) newBuffer);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
         }
 
         long endTime = System.nanoTime();

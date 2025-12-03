@@ -4,7 +4,6 @@ import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.protection.flags.EnumFlag;
-import com.sk89q.worldguard.protection.flags.registry.FlagConflictException;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
@@ -97,13 +96,13 @@ public class WorldGuardCacheHandler implements CacheHandler {
             var maxPoint = region.getMaximumPoint();
 
             // for loop endpoints
-            int minY = minPoint.getY() & ~3;
-            int maxY = (maxPoint.getY() + 1) & ~3;
+            int minY = minPoint.y() & ~3;
+            int maxY = (maxPoint.y() + 1) & ~3;
             // world coords to chunk coords (0-16), rounded to the closest multiple of 4
-            int minX = Math.max(xOffset, minPoint.getX()) & 15 & ~3;
-            int maxX = (Math.min(xOffset + 15, maxPoint.getX()) & 15) + 4 & ~3;
-            int minZ = Math.max(zOffset, minPoint.getZ()) & 15 & ~3;
-            int maxZ = (Math.min(zOffset + 15, maxPoint.getZ()) & 15) + 4 & ~3;
+            int minX = Math.max(xOffset, minPoint.x()) & 15 & ~3;
+            int maxX = (Math.min(xOffset + 15, maxPoint.x()) & 15) + 4 & ~3;
+            int minZ = Math.max(zOffset, minPoint.z()) & 15 & ~3;
+            int maxZ = (Math.min(zOffset + 15, maxPoint.z()) & 15) + 4 & ~3;
             if (Config.debug)
                 LOGGER.info("Region: %s, x: %d-%d, y: %d-%d, z: %d-%d".formatted(region.getId(), minX, maxX, minY, maxY, minZ, maxZ));
 

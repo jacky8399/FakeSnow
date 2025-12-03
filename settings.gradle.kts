@@ -7,6 +7,6 @@ pluginManagement {
 
 rootProject.name = "FakeSnow"
 include("common")
-include("v1_21_5_R1")
-include("v1_21_8_R1")
+//include("v1_21_5_R1")
+include("v1_21_10_R1")
 

@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.jacky8399"
-version = "1.4"
+version = "1.4.1"
 
 java {
     toolchain {
@@ -22,23 +22,19 @@ allprojects {
 
     repositories {
         mavenCentral()
-        maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/") {
-            content {
-                includeGroup("org.spigotmc")
-            }
-        }
         maven("https://maven.enginehub.org/repo/")
     }
 }
 
 dependencies {
-    compileOnly("org.spigotmc:spigot-api:1.21.8-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
     implementation(project(":common"))
 
-    implementation(project(":v1_21_5_R1", configuration = "reobf"))
-    implementation(project(":v1_21_8_R1", configuration = "reobf"))
+//    implementation(project(":v1_21_5_R1", configuration = "reobf"))
+    implementation(project(":v1_21_10_R1"))
 
-    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.6")
+    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.4.0-SNAPSHOT")
+    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.15-SNAPSHOT")
     implementation("org.bstats:bstats-bukkit:3.0.0")
     compileOnly("net.dmulloy2:ProtocolLib:5.4.0")
 }
@@ -70,40 +66,24 @@ tasks {
 }
 
 tasks.runServer {
-    minecraftVersion("1.21.8")
+    minecraftVersion("1.21.10")
     downloadPlugins {
         github("dmulloy2", "ProtocolLib", "5.4.0", "ProtocolLib.jar")
-        modrinth("worldedit", "Jk1z2u7n") // 7.3.15 version id for Bukkit
-        modrinth("worldguard", "7.0.14")
+        modrinth("worldedit", "5T0Vw5PH") // 7.4.0 beta 1 version id for Bukkit
+        modrinth("worldguard", "7.0.15-beta-01")
     }
     jvmArgs(
 //        "-XX:+AllowEnhancedClassRedefinition",
         "-Dnet.kyori.ansi.colorLevel=truecolor",
     )
-}
-
-tasks.register("runServer1_21_5", RunServer::class) {
-    minecraftVersion("1.21.5")
-    downloadPlugins {
-        github("dmulloy2", "ProtocolLib", "5.4.0", "ProtocolLib.jar")
-        modrinth("worldedit", "Jk1z2u7n") // 7.3.15 version id for Bukkit
-        modrinth("worldguard", "7.0.14")
-    }
-    jvmArgs(
-//        "-XX:+AllowEnhancedClassRedefinition",
-        "-Dnet.kyori.ansi.colorLevel=truecolor",
-    )
-    pluginJars.from(tasks.shadowJar.flatMap { it.archiveFile })
-    runDirectory = layout.projectDirectory.dir("run1_21_5")
-    systemProperties["Paper.IgnoreJavaVersion"] = true
 }
 
 tasks.register("runServer1_21_6", RunServer::class) {
-    minecraftVersion("1.21.6")
+    minecraftVersion("1.21.11-pre4")
     downloadPlugins {
         github("dmulloy2", "ProtocolLib", "5.4.0", "ProtocolLib.jar")
-        modrinth("worldedit", "Jk1z2u7n") // 7.3.15 version id for Bukkit
-        modrinth("worldguard", "7.0.14")
+//        modrinth("worldedit", "Jk1z2u7n") // 7.3.15 version id for Bukkit
+//        modrinth("worldguard", "7.0.14")
     }
     jvmArgs(
 //        "-XX:+AllowEnhancedClassRedefinition",

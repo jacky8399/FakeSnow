@@ -3,8 +3,7 @@ package com.jacky8399.fakesnow;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.utility.MinecraftVersion;
-import com.jacky8399.fakesnow.v1_21_5_R1.PacketListener_v1_21_5_R1;
-import com.jacky8399.fakesnow.v1_21_8_R1.PacketListener_v1_21_8_R1;
+import com.jacky8399.fakesnow.v1_21_10_R1.PacketListener_v1_21_10_R1;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -41,11 +40,9 @@ public final class FakeSnow extends JavaPlugin {
     public void onEnable() {
         String bukkitVersion = Bukkit.getServer().getBukkitVersion();
         if (!MinecraftVersion.getCurrentVersion().isAtLeast(new MinecraftVersion("1.21"))) {
-            throw new IllegalStateException("Only Minecraft 1.21.5-1.21.8 is supported");
-        } else if (bukkitVersion.startsWith("1.21.5")) {
-            packetListener = new PacketListener_v1_21_5_R1(this); // 1.21.5
-        } else if (Stream.of("1.21.6", "1.21.7", "1.21.8").anyMatch(bukkitVersion::startsWith)) {
-            packetListener = new PacketListener_v1_21_8_R1(this); // 1.21.6 - 1.21.8
+            throw new IllegalStateException("Only Minecraft 1.21.9-1.21.11 is supported");
+        } if (Stream.of("1.21.9", "1.21.10", "1.21.11").anyMatch(bukkitVersion::startsWith)) {
+            packetListener = new PacketListener_v1_21_10_R1(this); // 1.21.6 - 1.21.8
         } else {
             throw new IllegalStateException("Unsupported version " + bukkitVersion);
         }

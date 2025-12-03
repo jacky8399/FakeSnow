@@ -30,7 +30,7 @@ public class WeatherCache {
             var sectionCache = chunkCache.getSectionCache(sectionIndex);
             if (sectionCache == null)
                 return null;
-            return sectionCache[getIndex(chunkPosX, (posY - minHeight) & 0xF, chunkPosZ)];
+            return sectionCache[ChunkCache.getBlockIndex(chunkPosX, (posY - minHeight) & 0xF, chunkPosZ)];
         }
 
         @Nullable
@@ -38,11 +38,10 @@ public class WeatherCache {
             return getBlockWeather(world, x >> 4, z >> 4, x & 0xF, y, z & 0xF);
         }
 
-        // check if a chunk section consists of only the global biome
-        public boolean isSectionUniform(int chunkX, int chunkZ, int sectionIndex) {
+        /** {@return if a chunk section consists of only the global biome} */
+        public boolean isSectionUniform(@Nullable ChunkCache chunkCache, int sectionIndex) {
             if (globalWeather == null) // can't have global biome if it isn't set
                 return false;
-            var chunkCache = chunkMap.get(new ChunkPos(chunkX, chunkZ));
             return chunkCache == null || chunkCache.getSectionCache(sectionIndex) == null;
         }
 
@@ -61,6 +60,15 @@ public class WeatherCache {
     }
 
     public record ChunkCache(WeatherType[][] chunkCache) {
+        public static int getBlockIndex(int x, int y, int z) {
+            // 0-15 to 0-3
+            x >>= 2;
+            y >>= 2;
+            z >>= 2;
+            // iteration order is yxz
+            return (y << 4) + (x << 2) + z;
+        }
+
         public @Nullable WeatherType @Nullable [] getSectionCache(int sectionIndex) {
             return chunkCache[sectionIndex];
         }
@@ -68,7 +76,7 @@ public class WeatherCache {
         public @Nullable WeatherType getBlockWeather(int sectionIndex, int x, int y, int z) {
             var sectionCache = getSectionCache(sectionIndex);
             if (sectionCache != null)
-                return sectionCache[getIndex(x, y, z)];
+                return sectionCache[getBlockIndex(x, y, z)];
             return null;
         }
     }
@@ -88,12 +96,4 @@ public class WeatherCache {
     }
     // Utilities
 
-    public static int getIndex(int x, int y, int z) {
-        // 0-15 to 0-3
-        x >>= 2;
-        y >>= 2;
-        z >>= 2;
-        // iteration order is yxz
-        return (y << 4) + (x << 2) + z;
-    }
 }
