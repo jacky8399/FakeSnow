@@ -73,8 +73,7 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
                 // See https://wiki.vg/Chunk_Format#Single_valued
                 container = new PalettedContainer<>(uniformBiomeHolder, nmsChunk.level.palettedContainerFactory().biomeStrategy(), null);
             } else {
-                var originalBiomes = (PalettedContainer<Holder<Biome>>) section.getBiomes();
-                container = originalBiomes.copy();
+                container = section.getBiomes().copy();
                 if (sectionCache == null)
                     continue; // no modification for this section
                 for (int j = 0; j < 4; j++) {
