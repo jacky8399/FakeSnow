@@ -3,8 +3,10 @@ package com.jacky8399.fakesnow.v1_21_10_R1;
 import com.comphenix.protocol.events.PacketEvent;
 import com.jacky8399.fakesnow.Config;
 import com.jacky8399.fakesnow.PacketListener;
-import com.jacky8399.fakesnow.WeatherCache;
 import com.jacky8399.fakesnow.WeatherType;
+import com.jacky8399.fakesnow.WorldWeatherManager;
+import com.jacky8399.fakesnow.cache.WorldWeatherCache;
+import com.jacky8399.fakesnow.chunk.ChunkCache;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.papermc.paper.antixray.ChunkPacketBlockController;
@@ -44,11 +46,13 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
 
     private static final Logger logger = LoggerFactory.getLogger(PacketListener_v1_21_10_R1.class.getSimpleName());
 
+    private final WorldWeatherManager worldWeatherManager = WorldWeatherManager.getInstance();
+
     public PacketListener_v1_21_10_R1(Plugin plugin) {
         super(plugin);
     }
 
-    private static PalettedContainer<Holder<Biome>>[] copyBiomes(LevelChunk nmsChunk, LevelChunkSection[] sections, WeatherCache.WorldCache worldCache) {
+    private static PalettedContainer<Holder<Biome>>[] copyBiomes(LevelChunk nmsChunk, LevelChunkSection[] sections, WorldWeatherCache worldCache) {
         int chunkX = nmsChunk.getPos().x;
         int chunkZ = nmsChunk.getPos().z;
 
@@ -59,13 +63,12 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
             weatherToNmsBiomeMap.put(weatherType, CraftBiome.bukkitToMinecraftHolder(weatherType.biome));
         }
 
-        WeatherCache.ChunkCache chunkCache = worldCache.getChunkCache(chunkX, chunkZ);
+        ChunkCache chunkCache = worldCache.getChunkCache(chunkX, chunkZ);
         WeatherType globalWeather = worldCache.globalWeather();
         for (int idx = 0; idx < sections.length; idx++) {
             var section = sections[idx];
-            WeatherType[] sectionCache = chunkCache != null ? chunkCache.getSectionCache(idx) : null;
-
             PalettedContainer<Holder<Biome>> container;
+
             if (worldCache.isSectionUniform(chunkCache, idx)) {
                 // globalWeather can't be null
                 var uniformBiomeHolder = weatherToNmsBiomeMap.get(globalWeather);
@@ -74,6 +77,8 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
                 container = new PalettedContainer<>(uniformBiomeHolder, nmsChunk.level.palettedContainerFactory().biomeStrategy(), null);
             } else {
                 container = section.getBiomes().copy();
+                WeatherType[] sectionCache = chunkCache != null ? chunkCache.getSectionCache(idx) : null;
+
                 if (sectionCache == null)
                     continue; // no modification for this section
                 for (int j = 0; j < 4; j++) {
@@ -82,7 +87,7 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
                         int x = i << 2;
                         for (int k = 0; k < 4; k++) {
                             int z = k << 2;
-                            var blockWeather = sectionCache[WeatherCache.ChunkCache.getBlockIndex(x, y, z)];
+                            var blockWeather = sectionCache[ChunkCache.getBlockIndex(x, y, z)];
                             if (blockWeather != null) {
                                 container.set(i, j, k, weatherToNmsBiomeMap.get(blockWeather));
                             } else if (globalWeather != null) {
@@ -97,10 +102,11 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
 
             arr[idx] = container;
         }
+
         return arr;
     }
 
-    private static LevelChunkSection[] copyChunkSections(LevelChunk nmsChunk, LevelChunkSection[] originalSections, WeatherCache.WorldCache worldCache) {
+    private static LevelChunkSection[] copyChunkSections(LevelChunk nmsChunk, LevelChunkSection[] originalSections, WorldWeatherCache worldCache) {
         LevelChunkSection[] fakeSections = new LevelChunkSection[originalSections.length];
         var fakeBiomes = copyBiomes(nmsChunk, originalSections, worldCache);
         for (int idx = 0; idx < originalSections.length; idx++) {
@@ -142,9 +148,10 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
         int x = packet.getX();
         int z = packet.getZ();
 
-        var worldCache = WeatherCache.getWorldCache(world);
-        if (worldCache == null || !worldCache.hasChunk(x, z))
+        var worldCache = worldWeatherManager.getWorldCache(world);
+        if (worldCache == null || !worldCache.hasChunk(x, z)) {
             return;
+        }
 
         Chunk chunk = world.getChunkAt(x, z);
         LevelChunk nmsChunk = (LevelChunk) ((CraftChunk) chunk).getHandle(ChunkStatus.FULL);
@@ -207,7 +214,7 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
         int x = packet.getX();
         int z = packet.getZ();
 
-        var worldCache = WeatherCache.getWorldCache(world);
+        var worldCache = worldWeatherManager.getWorldCache(world);
         if (worldCache == null || !worldCache.hasChunk(x, z))
             return;
 

@@ -1,5 +1,9 @@
 package com.jacky8399.fakesnow;
 
+import com.jacky8399.fakesnow.cache.ChunkWorldCache;
+import com.jacky8399.fakesnow.cache.WorldWeatherCache;
+import com.jacky8399.fakesnow.chunk.ChunkCache;
+import com.jacky8399.fakesnow.handler.CacheHandler;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldguard.WorldGuard;
@@ -11,13 +15,12 @@ import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.logging.Logger;
 
 public class WorldGuardCacheHandler implements CacheHandler {
     private static final Logger LOGGER = FakeSnow.get().logger;
 
-    public static EnumFlag<WeatherType> CUSTOM_WEATHER_TYPE;
+    private static EnumFlag<WeatherType> CUSTOM_WEATHER_TYPE;
 
     @SuppressWarnings("unchecked")
     public static void tryAddFlag() {
@@ -35,10 +38,13 @@ public class WorldGuardCacheHandler implements CacheHandler {
     }
 
     @Override
-    public @Nullable WeatherCache.WorldCache loadWorld(World world) {
+    public @Nullable WorldWeatherCache loadWorld(World world) {
         var regionManager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(world));
-        if (regionManager == null)
+
+        if (regionManager == null) {
             return null;
+        }
+
         // global weather
         var globalRegion = regionManager.getRegion("__global__");
         WeatherType globalWeather = null;
@@ -47,18 +53,20 @@ public class WorldGuardCacheHandler implements CacheHandler {
         }
 
         var loadedChunks = world.getLoadedChunks();
-        var weatherCache = new WeatherCache.WorldCache(globalWeather, new HashMap<>());
+        var weatherCache = new ChunkWorldCache(globalWeather);
 
         for (var chunk : loadedChunks) {
             var chunkCache = addChunkToCache(weatherCache, world, regionManager, chunk);
             if (chunkCache != null) {
-                weatherCache.chunkMap().put(new WeatherCache.ChunkPos(chunk.getX(), chunk.getZ()), chunkCache);
+                weatherCache.putChunk(chunk.getX(), chunk.getZ(), chunkCache);
             }
         }
+
         return weatherCache;
     }
+
     private static final int QUERY_OFFSET = 2;
-    public WeatherCache.ChunkCache addChunkToCache(WeatherCache.WorldCache cache, World world, RegionManager regionManager, Chunk chunk) {
+    public ChunkCache addChunkToCache(WorldWeatherCache cache, World world, RegionManager regionManager, Chunk chunk) {
 
         // TODO WorldGuard might support async queries
         int xOffset = chunk.getX() * 16;
@@ -134,29 +142,25 @@ public class WorldGuardCacheHandler implements CacheHandler {
                                 chunkTime - startTime, queryTime - chunkTime));
             }
             // chunk contains custom weather type
-            return new WeatherCache.ChunkCache(chunkCache);
+            return new ChunkCache(chunkCache);
         }
         return null;
     }
 
-
     @Override
-    public void unloadWorld(World world, WeatherCache.@Nullable WorldCache cache) {
-
+    public void unloadWorld(World world, @Nullable WorldWeatherCache worldCache) {
+        if (worldCache != null) {
+            worldCache.unloadWorld();
+        }
     }
 
     @Override
-    public @Nullable WeatherCache.ChunkCache loadChunk(Chunk chunk, WeatherCache.WorldCache worldCache) {
+    public @Nullable ChunkCache loadChunk(Chunk chunk, WorldWeatherCache worldCache) {
         World world = chunk.getWorld();
         var regionManager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(world));
         if (regionManager == null)
             return null;
         return addChunkToCache(worldCache, world, regionManager, chunk);
-    }
-
-    @Override
-    public void unloadChunk(Chunk chunk, WeatherCache.WorldCache worldCache, WeatherCache.@Nullable ChunkCache chunkCache) {
-
     }
 
 }

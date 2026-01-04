@@ -3,6 +3,8 @@ package com.jacky8399.fakesnow;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.utility.MinecraftVersion;
+import com.jacky8399.fakesnow.handler.AlwaysSnowyCacheHandler;
+import com.jacky8399.fakesnow.handler.CacheHandler;
 import com.jacky8399.fakesnow.v1_21_10_R1.PacketListener_v1_21_10_R1;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
@@ -13,7 +15,7 @@ import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 public final class FakeSnow extends JavaPlugin {
-    CacheHandler cacheHandler;
+    private boolean worldGuardEnabled;
 
     @Override
     public void onLoad() {
@@ -22,7 +24,7 @@ public final class FakeSnow extends JavaPlugin {
         if (Bukkit.getPluginManager().getPlugin("WorldGuard") != null) {
             try {
                 WorldGuardCacheHandler.tryAddFlag();
-                cacheHandler = new WorldGuardCacheHandler();
+                worldGuardEnabled = true;
             } catch (Error ex) {
                 // WorldGuard not installed
                 ex.printStackTrace();
@@ -35,9 +37,13 @@ public final class FakeSnow extends JavaPlugin {
 
     private BukkitTask regionRefreshTask;
     private PacketListener packetListener;
+    private WorldWeatherManager worldWeatherManager;
 
     @Override
     public void onEnable() {
+        saveDefaultConfig();
+        reloadConfig();
+
         String bukkitVersion = Bukkit.getServer().getBukkitVersion();
         if (!MinecraftVersion.getCurrentVersion().isAtLeast(new MinecraftVersion("1.21"))) {
             throw new IllegalStateException("Only Minecraft 1.21.9-1.21.11 is supported");
@@ -52,21 +58,14 @@ public final class FakeSnow extends JavaPlugin {
         getCommand("fakesnow").setExecutor(new CommandFakesnow());
         ProtocolLibrary.getProtocolManager().addPacketListener(packetListener);
 
-        saveDefaultConfig();
-        reloadConfig();
-
-        if (cacheHandler == null) {
-            cacheHandler = CacheHandler.ALWAYS_SNOWY;
-            logger.info("WorldGuard not installed. All normal worlds will be snowy.");
-        }
-        WeatherCache.refreshCache(cacheHandler);
-
         new Metrics(this, 16697);
     }
 
     @Override
     public void onDisable() {
-        WeatherCache.worldCache.clear();
+        if (worldWeatherManager != null) {
+            worldWeatherManager.clearCache();
+        }
     }
 
     @Override
@@ -76,10 +75,30 @@ public final class FakeSnow extends JavaPlugin {
         if (regionRefreshTask != null) {
             regionRefreshTask.cancel();
         }
+
+        worldWeatherManager = WorldWeatherManager.updateInstance(createCacheHandler());
+        worldWeatherManager.refreshCache();
+
         if (Config.regionRefreshInterval != 0) {
-            regionRefreshTask = Bukkit.getScheduler().runTaskTimer(this, () -> WeatherCache.refreshCache(cacheHandler),
-                    Config.regionRefreshInterval * 20L, Config.regionRefreshInterval * 20L);
+            regionRefreshTask = Bukkit.getScheduler().runTaskTimer(
+                    this,
+                    worldWeatherManager::refreshCache,
+                    Config.regionRefreshInterval * 20L, Config.regionRefreshInterval * 20L
+            );
         }
+    }
+
+    private CacheHandler createCacheHandler() {
+        if (!worldGuardEnabled) {
+            logger.info("WorldGuard not installed. All normal worlds will be snowy.");
+            return new AlwaysSnowyCacheHandler();
+        } else if (Config.alwaysSnowy) {
+            logger.info("Always snowy mode enabled in config. All normal worlds will be snowy.");
+            return new AlwaysSnowyCacheHandler();
+        }
+
+        logger.info("Hooked into WorldGuard.");
+        return new WorldGuardCacheHandler();
     }
 
     public static FakeSnow get() {

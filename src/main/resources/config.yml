@@ -8,6 +8,10 @@ debug: false
 # However, it might send incorrect chunk data to clients in rare cases.
 use-fast-packet-handler: true
 
+# Enable this setting if you want to enable snow in all normal worlds.
+# This will reduce the number of calculations.
+always-snowy: false
+
 # Seconds between region refreshes, set to 0 to disable
 # Weather effects can always be reloaded using /fakesnow refreshregions
 # WARNING: a short interval will cause performance issues!
