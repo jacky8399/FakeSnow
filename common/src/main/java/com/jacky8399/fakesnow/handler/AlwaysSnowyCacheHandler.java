@@ -7,11 +7,11 @@ import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.jetbrains.annotations.Nullable;
 
-public final class AlwaysSnowyCacheHandler implements CacheHandler {
+public class AlwaysSnowyCacheHandler implements CacheHandler {
 
     @Override
     public @Nullable WorldWeatherCache loadWorld(World world) {
-        return AlwaysSnowyWorldCache.instance();
+        return world.getEnvironment() == World.Environment.NORMAL ? AlwaysSnowyWorldCache.instance() : null;
     }
 
     @Override

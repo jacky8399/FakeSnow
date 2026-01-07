@@ -3,12 +3,8 @@
 # Should be set to false for production servers!
 debug: false
 
-# Whether to use a much faster packet handler.
-# The fast packet handler should be significantly faster than the slow one.
-# However, it might send incorrect chunk data to clients in rare cases.
-use-fast-packet-handler: true
-
 # Enable this setting if you want to enable snow in all normal worlds.
+# Changing the weather on other worlds will be impossible.
 # This will reduce the number of calculations.
 always-snowy: false
 
