@@ -34,7 +34,7 @@ dependencies {
     implementation(project(":v1_21_10_R1"))
 
     compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.4.0-SNAPSHOT")
-    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.15-SNAPSHOT")
+    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.10-SNAPSHOT")
     implementation("org.bstats:bstats-bukkit:3.0.0")
     compileOnly("net.dmulloy2:ProtocolLib:5.4.0")
 }

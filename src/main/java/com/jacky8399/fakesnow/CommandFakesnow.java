@@ -1,5 +1,6 @@
 package com.jacky8399.fakesnow;
 
+import com.jacky8399.fakesnow.cache.WorldWeatherCache;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -10,13 +11,12 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class CommandFakesnow implements TabExecutor {
+
+    private final WorldWeatherManager worldWeatherManager = WorldWeatherManager.getInstance();
+
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
@@ -25,29 +25,41 @@ public class CommandFakesnow implements TabExecutor {
         }
         switch (args[0]) {
             case "refreshregions" -> {
-                Map<World, WeatherType> worldWeather = WeatherCache.worldCache.entrySet().stream()
-                        .filter(entry -> entry.getValue().globalWeather() != null)
-                        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().globalWeather()));
-                WeatherCache.refreshCache(FakeSnow.get().cacheHandler);
-                // try to refresh all chunks
-                WeatherCache.worldCache.forEach((world, worldCache) -> {
-                    WeatherType newWeather = worldCache.globalWeather();
-                    if (newWeather != worldWeather.get(world)) {
-                        // __global__ has changed, refresh the whole world
-                        for (var chunk : world.getLoadedChunks()) {
-                            world.refreshChunk(chunk.getX(), chunk.getZ());
-                        }
-                    } else {
-                        for (WeatherCache.ChunkPos chunkPos : worldCache.chunkMap().keySet()) {
-                            world.refreshChunk(chunkPos.x(), chunkPos.z());
+                List<World> worlds = Bukkit.getWorlds();
+                Map<World, WeatherType> worldWeather = new HashMap<>(worlds.size());
+
+                for (World world : worlds) {
+                    WorldWeatherCache cache = worldWeatherManager.getWorldCache(world);
+
+                    if (cache != null) {
+                        WeatherType weatherType = cache.globalWeather();
+
+                        if  (weatherType != null) {
+                            worldWeather.put(world, weatherType);
                         }
                     }
-                });
+                }
 
-                sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds().size() + " worlds, cached " +
-                        WeatherCache.worldCache.values().stream()
-                                .mapToInt(worldCache -> worldCache.chunkMap().size())
-                                .sum() + " chunks");
+                worldWeatherManager.refreshCache();
+                // try to refresh all chunks
+                for (World world : worlds) {
+                    WorldWeatherCache cache = worldWeatherManager.getWorldCache(world);
+
+                    if (cache != null) {
+                        WeatherType newWeather = cache.globalWeather();
+
+                        if (newWeather != worldWeather.get(world)) {
+                            // __global__ has changed, refresh the whole world
+                            for (var chunk : world.getLoadedChunks()) {
+                                world.refreshChunk(chunk.getX(), chunk.getZ());
+                            }
+                        } else {
+                            cache.refreshChunks(world);
+                        }
+                    }
+                }
+
+                sender.sendMessage(ChatColor.GREEN + "Reloaded " + Bukkit.getWorlds().size() + " worlds");
                 sender.sendMessage(
                         ChatColor.GREEN + "If you don't see the snow:\n" +
                                 ChatColor.GREEN + "1. Check if the biome is " + WeatherType.SNOW.biome.getKey() + "\n" +
