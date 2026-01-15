@@ -34,6 +34,7 @@ import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HexFormat;
+import java.util.Objects;
 
 public class PacketListener_v1_21_10_R1 extends PacketListener {
 
@@ -65,15 +66,15 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
             var section = sections[idx];
             WeatherType[] sectionCache = chunkCache != null ? chunkCache.getSectionCache(idx) : null;
 
-            PalettedContainer<Holder<Biome>> container;
             if (worldCache.isSectionUniform(chunkCache, idx)) {
                 // globalWeather can't be null
                 var uniformBiomeHolder = weatherToNmsBiomeMap.get(globalWeather);
                 // Single-valued palette
                 // See https://wiki.vg/Chunk_Format#Single_valued
-                container = new PalettedContainer<>(uniformBiomeHolder, nmsChunk.level.palettedContainerFactory().biomeStrategy(), null);
+                arr[idx] = new PalettedContainer<>(uniformBiomeHolder, nmsChunk.level.palettedContainerFactory().biomeStrategy(), null);
             } else {
-                container = section.getBiomes().copy();
+                PalettedContainer<Holder<Biome>> container;
+                arr[idx] = container = section.getBiomes().copy();
                 if (sectionCache == null)
                     continue; // no modification for this section
                 for (int j = 0; j < 4; j++) {
@@ -94,8 +95,6 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
                     }
                 }
             }
-
-            arr[idx] = container;
         }
         return arr;
     }
@@ -105,7 +104,8 @@ public class PacketListener_v1_21_10_R1 extends PacketListener {
         var fakeBiomes = copyBiomes(nmsChunk, originalSections, worldCache);
         for (int idx = 0; idx < originalSections.length; idx++) {
             var originalSection = originalSections[idx];
-            fakeSections[idx] = new LevelChunkSection(originalSection.getStates(), fakeBiomes[idx]);
+            fakeSections[idx] = new LevelChunkSection(originalSection.getStates(),
+                    Objects.requireNonNull(fakeBiomes[idx]));
         }
 
         return fakeSections;

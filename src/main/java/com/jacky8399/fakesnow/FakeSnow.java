@@ -4,12 +4,12 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.utility.MinecraftVersion;
 import com.jacky8399.fakesnow.v1_21_10_R1.PacketListener_v1_21_10_R1;
+import net.kyori.adventure.text.logger.slf4j.ComponentLogger;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 public final class FakeSnow extends JavaPlugin {
@@ -18,20 +18,20 @@ public final class FakeSnow extends JavaPlugin {
     @Override
     public void onLoad() {
         INSTANCE = this;
-        logger = getLogger();
+        logger = getComponentLogger();
         if (Bukkit.getPluginManager().getPlugin("WorldGuard") != null) {
             try {
                 WorldGuardCacheHandler.tryAddFlag();
                 cacheHandler = new WorldGuardCacheHandler();
-            } catch (Error ex) {
+            } catch (Throwable ex) {
                 // WorldGuard not installed
-                ex.printStackTrace();
+                logger.error("Detected WorldGuard running, but failed to register WorldGuard flag!", ex);
             }
         }
     }
 
     private static FakeSnow INSTANCE;
-    public Logger logger;
+    public ComponentLogger logger;
 
     private BukkitTask regionRefreshTask;
     private PacketListener packetListener;

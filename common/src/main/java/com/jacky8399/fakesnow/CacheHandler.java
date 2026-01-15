@@ -20,7 +20,7 @@ public interface CacheHandler {
 
     CacheHandler ALWAYS_SNOWY = AlwaysSnowy.INSTANCE;
     class AlwaysSnowy implements CacheHandler {
-        private static AlwaysSnowy INSTANCE = new AlwaysSnowy();
+        private static final AlwaysSnowy INSTANCE = new AlwaysSnowy();
         private AlwaysSnowy() {
 
         }

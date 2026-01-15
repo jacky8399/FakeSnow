@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.jacky8399"
-version = "1.4.1"
+version = "1.4.1.1"
 
 java {
     toolchain {
@@ -33,8 +33,7 @@ dependencies {
 //    implementation(project(":v1_21_5_R1", configuration = "reobf"))
     implementation(project(":v1_21_10_R1"))
 
-    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.4.0-SNAPSHOT")
-    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.15-SNAPSHOT")
+    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.15")
     implementation("org.bstats:bstats-bukkit:3.0.0")
     compileOnly("net.dmulloy2:ProtocolLib:5.4.0")
 }
@@ -79,11 +78,11 @@ tasks.runServer {
 }
 
 tasks.register("runServer1_21_6", RunServer::class) {
-    minecraftVersion("1.21.11-pre4")
+    minecraftVersion("1.21.11")
     downloadPlugins {
-        github("dmulloy2", "ProtocolLib", "5.4.0", "ProtocolLib.jar")
-//        modrinth("worldedit", "Jk1z2u7n") // 7.3.15 version id for Bukkit
-//        modrinth("worldguard", "7.0.14")
+        github("dmulloy2", "ProtocolLib", "dev-build", "ProtocolLib.jar")
+        modrinth("worldedit", "XlUIRmF8") // 7.3.18 version id for Bukkit
+        modrinth("worldguard", "7.0.15")
     }
     jvmArgs(
 //        "-XX:+AllowEnhancedClassRedefinition",

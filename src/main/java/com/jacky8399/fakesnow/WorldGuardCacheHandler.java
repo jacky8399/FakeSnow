@@ -7,28 +7,47 @@ import com.sk89q.worldguard.protection.flags.EnumFlag;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
+import net.kyori.adventure.text.logger.slf4j.ComponentLogger;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
-import java.util.logging.Logger;
+import java.util.Optional;
 
 public class WorldGuardCacheHandler implements CacheHandler {
-    private static final Logger LOGGER = FakeSnow.get().logger;
+    private static final ComponentLogger LOGGER = FakeSnow.get().logger;
 
     public static EnumFlag<WeatherType> CUSTOM_WEATHER_TYPE;
 
     @SuppressWarnings("unchecked")
     public static void tryAddFlag() {
+        Optional<StackWalker.StackFrame> frame = StackWalker.getInstance().walk(s -> s
+                .filter(sf ->
+                        sf.getClassName().regionMatches(true, 0, "plugman", 0, 7) ||
+                        sf.getClassName().endsWith("ReloadCommand")
+                )
+                .findFirst());
+
+        frame.ifPresent(sf -> LOGGER.warn("""
+            
+            ================
+            Plugin reload detected. Reloading the plugin in any way is unsupported,
+            as the plugin will not be able to register WorldGuard flags correctly!
+            Consider restarting the server instead.
+            
+            If you think this detection was incorrect, please file a bug report.
+            Offending stack frame: {}
+            ================""", sf));
+
         try {
             CUSTOM_WEATHER_TYPE = new EnumFlag<>("custom-weather-type", WeatherType.class);
             WorldGuard.getInstance().getFlagRegistry().register(WorldGuardCacheHandler.CUSTOM_WEATHER_TYPE);
         } catch (Throwable e) {
             var flag = WorldGuard.getInstance().getFlagRegistry().get("custom-weather-type");
-//            if (!(flag instanceof EnumFlag<?> enumFlag) || enumFlag.getEnumClass() != WeatherType.class)
-//                throw new Error("Another plugin has already registered incompatible flag 'custom-weather-type'!", e);
-            FakeSnow.get().logger.warning("Detected existing WorldGuard flag 'custom-weather-type'.");
+            if (flag == null)
+                throw new IllegalStateException("Failed to register custom-weather-type", e);
+            FakeSnow.get().logger.warn("Detected existing WorldGuard flag 'custom-weather-type'.");
             CUSTOM_WEATHER_TYPE = (EnumFlag<WeatherType>) flag;
         }
         FakeSnow.get().logger.info("Registered WorldGuard flag 'custom-weather-type'");
